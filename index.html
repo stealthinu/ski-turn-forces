@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>スキーターン 力ベクトル（リアルタイム）</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>スキーターン — 斜面垂直上からの力ベクトル</h1>
+    <p>スライダーを動かすと即座に再計算・再描画されます（Python 不要・ブラウザのみ）</p>
+  </header>
+
+  <div class="layout">
+    <aside class="controls">
+      <h2>パラメータ</h2>
+
+      <label>
+        <span>斜面角度 α <strong id="v-slope">30</strong>°</span>
+        <input type="range" id="slope" min="5" max="45" step="1" value="30" />
+      </label>
+
+      <label>
+        <span>速度 v <strong id="v-speed">8.0</strong> m/s</span>
+        <input type="range" id="speed" min="3" max="22" step="0.5" value="8" />
+      </label>
+
+      <label>
+        <span>ターン半径 R（apex） <strong id="v-radius">5.1</strong> m</span>
+        <input type="range" id="radius" min="3" max="25" step="0.2" value="5.1" />
+      </label>
+
+      <label>
+        <span>波長 λ <strong id="v-wave">40</strong> m</span>
+        <input type="range" id="wave" min="20" max="80" step="2" value="40" />
+      </label>
+
+      <label>
+        <span>質量 m <strong id="v-mass">60</strong> kg</span>
+        <input type="range" id="mass" min="50" max="90" step="1" value="60" />
+      </label>
+
+      <p class="derived">算出横振幅 A ≈ <strong id="v-amp">8.0</strong> m（R と λ から自動計算）</p>
+
+      <div class="legend">
+        <span><i class="swatch" style="background:#2563eb"></i>斜面方向重力 Fg = mg·sinα</span>
+        <span><i class="swatch" style="background:#dc2626"></i>遠心力 Fc = mv²/R</span>
+        <span><i class="swatch" style="background:#059669"></i>合力 F = Fg + Fc</span>
+      </div>
+
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>フェーズ</th>
+            <th>R [m]</th>
+            <th>|Fg|</th>
+            <th>|Fc|</th>
+            <th>|F|</th>
+            <th>∠F [°]</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <p class="hint">
+        静的 HTML/CSS/JS のみで動作します。GitHub Pages などにそのまま公開できます。
+      </p>
+    </aside>
+
+    <div class="view">
+      <section class="panel">
+        <h3>俯瞰図（サインカーブ軌道 + 各フェーズの力）</h3>
+        <canvas id="overview"></canvas>
+      </section>
+
+      <section class="panel">
+        <h3>フェーズ別拡大（ずらし平行四辺形）</h3>
+        <div class="phases">
+          <div class="phase-card"><canvas class="phase-canvas" data-i="0"></canvas></div>
+          <div class="phase-card"><canvas class="phase-canvas" data-i="1"></canvas></div>
+          <div class="phase-card"><canvas class="phase-canvas" data-i="2"></canvas></div>
+          <div class="phase-card"><canvas class="phase-canvas" data-i="3"></canvas></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
