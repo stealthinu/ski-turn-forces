@@ -28,13 +28,18 @@ export function apexRadius(wavelength, amplitude) {
   return (k * k) / amplitude;
 }
 
+/**
+ * 斜面垂直上から見た座標系:
+ *   x = 横方向（画面では左右）
+ *   y = 降下方向（画面では下向き）
+ */
 export function pathPoint(theta, wavelength, amplitude) {
-  const x = (wavelength / (2 * Math.PI)) * theta;
-  const y = amplitude * Math.sin(theta);
-  const dx = wavelength / (2 * Math.PI);
-  const dy = amplitude * Math.cos(theta);
-  const ddx = 0;
-  const ddy = -amplitude * Math.sin(theta);
+  const x = amplitude * Math.sin(theta);
+  const y = (wavelength / (2 * Math.PI)) * theta;
+  const dx = amplitude * Math.cos(theta);
+  const dy = wavelength / (2 * Math.PI);
+  const ddx = -amplitude * Math.sin(theta);
+  const ddy = 0;
   return { x, y, dx, dy, ddx, ddy };
 }
 
@@ -58,7 +63,7 @@ export function forcesAt(theta, params) {
   const radius = Math.abs(kappa) > 1e-9 ? Math.abs(1 / kappa) : Infinity;
 
   const fgMag = mass * G * Math.sin((slope * Math.PI) / 180);
-  const gravity = { x: fgMag, y: 0 };
+  const gravity = { x: 0, y: fgMag };
 
   let centrifugal = { x: 0, y: 0 };
   if (Math.abs(kappa) > 1e-9) {

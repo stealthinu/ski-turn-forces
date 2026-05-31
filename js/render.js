@@ -53,9 +53,10 @@ export function drawArrow(ctx, x1, y1, x2, y2, color, width = 2) {
  * @param {number} scale px/N
  */
 export function drawForceParallelogram(ctx, ox, oy, fg, fc, fnet, scale) {
-  const fgTip = [ox + fg.x * scale, oy - fg.y * scale];
-  const fcTip = [fgTip[0] + fc.x * scale, fgTip[1] - fc.y * scale];
-  const netTip = [ox + fnet.x * scale, oy - fnet.y * scale];
+  // 世界座標: +x=右, +y=降下（画面も同じ向き）
+  const fgTip = [ox + fg.x * scale, oy + fg.y * scale];
+  const fcTip = [fgTip[0] + fc.x * scale, fgTip[1] + fc.y * scale];
+  const netTip = [ox + fnet.x * scale, oy + fnet.y * scale];
 
   ctx.save();
   ctx.setLineDash([5, 4]);
@@ -100,8 +101,8 @@ export function makeTransform(canvas, bounds, padding = 48) {
   const cx = padding + (plotW - dataW * s) / 2;
   const cy = padding + (plotH - dataH * s) / 2;
 
-  /** @param {number} x @param {number} y */
-  const worldToScreen = (x, y) => [cx + (x - minX) * s, cy + (maxY - y) * s];
+  /** 世界 (x=横, y=降下) → 画面 (+x=右, +y=下) */
+  const worldToScreen = (x, y) => [cx + (x - minX) * s, cy + (y - minY) * s];
 
   return { ctx: canvas.getContext("2d"), w, h, s, worldToScreen, padding, minX, maxX, minY, maxY };
 }
@@ -127,15 +128,15 @@ export function clearCanvas(ctx, w, h) {
  * @param {ReturnType<import('./physics.js').samplePath>} path
  */
 export function renderOverview(canvas, params, phases, path) {
-  const maxX = Math.max(...path.map((p) => p.x));
-  const maxY = params.amp * 1.35;
-  const t = makeTransform(canvas, { minX: -2, maxX: maxX + 3, minY: -maxY, maxY });
+  const maxDown = Math.max(...path.map((p) => p.y));
+  const lateral = params.amp * 1.35;
+  const t = makeTransform(canvas, { minX: -lateral, maxX: lateral, minY: -2, maxY: maxDown + 3 });
   const { ctx, w, h, worldToScreen } = t;
 
   clearCanvas(ctx, w, h);
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-  // グリッド
+  // グリッド（横線 = 降下方向の目安）
   ctx.strokeStyle = COLORS.grid;
   ctx.lineWidth = 1;
   for (let i = 0; i <= 8; i++) {
@@ -146,18 +147,19 @@ export function renderOverview(canvas, params, phases, path) {
     ctx.stroke();
   }
 
-  // 中心線（切り替えライン）
+  // 中心線 x=0（切り替えライン）と降下方向矢印
   const [cx0, cy0] = worldToScreen(0, 0);
-  const [cx1] = worldToScreen(maxX * 0.4, 0);
+  const [, cy1] = worldToScreen(0, maxDown * 0.35);
   ctx.strokeStyle = COLORS.axis;
   ctx.beginPath();
   ctx.moveTo(cx0, cy0);
-  ctx.lineTo(cx1, cy0);
+  ctx.lineTo(cx0, cy1);
   ctx.stroke();
-  drawArrow(ctx, cx0, cy0, cx0 + 40, cy0, COLORS.text, 1.5);
+  drawArrow(ctx, cx0, cy0, cx0, cy0 + 40, COLORS.text, 1.5);
   ctx.fillStyle = COLORS.muted;
   ctx.font = "11px 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif";
-  ctx.fillText("降下方向", cx0 + 44, cy0 + 4);
+  ctx.textAlign = "left";
+  ctx.fillText("降下方向 y", cx0 + 6, cy0 + 52);
 
   // 軌道
   ctx.strokeStyle = COLORS.path;
@@ -230,11 +232,11 @@ export function renderOverview(canvas, params, phases, path) {
   ctx.fillStyle = COLORS.muted;
   ctx.font = "12px 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("降下方向 x [m]", w / 2, h - 12);
+  ctx.fillText("横方向 x [m]", w / 2, h - 12);
   ctx.save();
   ctx.translate(16, h / 2);
   ctx.rotate(-Math.PI / 2);
-  ctx.fillText("横方向 y [m]", 0, 0);
+  ctx.fillText("降下方向 y [m]", 0, 0);
   ctx.restore();
 }
 
