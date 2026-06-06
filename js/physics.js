@@ -1,98 +1,137 @@
 /**
- * 斜面垂直上から見たスキーターンの力計算（一定半径の円弧ターンモデル）
+ * 斜面垂直上から見たスキーターンの力計算（サインカーブ・ターンモデル）
  *
  * 座標系:
  *   x = 横方向（画面では左右）
  *   y = 降下方向（画面では下向き）
  *
- * 1ターンを「半径 R 一定・中心角 θ の円弧」とみなす。
- *   - 1ターン弧長 L = R·θ
- *   - 進行方向（ヘディング）はフォールライン基準で +θ/2 → 0 → -θ/2 と回る
- *   - 遠心力 Fc = m·v²/R は大きさ一定、向き（外向き）だけが回転する
+ * 軌道は x = A·sin(t), y = c·t（c = λ/2π）のサインカーブ。
+ *   - 曲率半径は場所で変化し、apex（一番外側 t=π/2）で最小 = R、
+ *     切り替え（t=0, π）で ∞ になる。
+ *   - 入力は「apex の最小半径 R」と「1ターン角 θ」。
+ *     θ は 1ターン弧長 L = R·θ を決め、そこから A, λ を数値的に解く。
+ *   - 遠心力 Fc = m·v²/r（r は局所半径）。apex で最大、切り替えで 0。
  */
 
 export const G = 9.81;
 
-/** ターン内の代表フェーズ（frac: 0=切り替え … 0.5=apex … 1=次の切り替え） */
+/** ターン内の代表フェーズ（1ターン = t:0→π） */
 export const PHASES = [
-  { id: "transition", frac: 0 },
-  { id: "entry", frac: 0.25 },
-  { id: "apex", frac: 0.5 },
-  { id: "exit", frac: 0.75 },
+  { id: "transition", theta: 0 },
+  { id: "entry", theta: Math.PI / 4 },
+  { id: "apex", theta: Math.PI / 2 },
+  { id: "exit", theta: (3 * Math.PI) / 4 },
 ];
 
 export const PHASE_COLORS = ["#7C3AED", "#EA580C", "#DB2777", "#0891B2"];
 
-/** @typedef {{ slope: number, speed: number, R: number, turnAngle: number, mass: number }} SimParams */
+/** @typedef {{ slope: number, speed: number, amp: number, wave: number, mass: number }} SimParams */
 
 const deg2rad = (d) => (d * Math.PI) / 180;
 
-/** 1ターン弧長 L = R·θ [m] */
+/** 1ターン弧長 L = R·θ [m]（θ は度） */
 export function arcLength(R, turnAngleDeg) {
   return R * deg2rad(turnAngleDeg);
 }
 
-/** 1ターンあたりの降下距離 [m]（切り替え→次の切り替えの直線距離） */
-export function downhillPerTurn(R, turnAngleDeg) {
-  return 2 * R * Math.sin(deg2rad(turnAngleDeg) / 2);
-}
-
-/** 横振幅（フォールライン中心から apex までの片振幅） [m] */
-export function lateralAmplitude(R, turnAngleDeg) {
-  return R * (1 - Math.cos(deg2rad(turnAngleDeg) / 2));
+/** サイン1ターン分（t:0→π）の弧長を数値積分 */
+function sineArcLength(amp, c, steps = 240) {
+  let sum = 0;
+  const dt = Math.PI / steps;
+  for (let i = 0; i < steps; i++) {
+    const t = (i + 0.5) * dt;
+    const dx = amp * Math.cos(t);
+    sum += Math.hypot(dx, c) * dt;
+  }
+  return sum;
 }
 
 /**
- * ターン内フラクション frac における力と位置（右ターン1本の座標系）。
- * 右ターン始点を原点(0,0)、進行とともに +y 方向へ降下。
+ * 「apex 最小半径 R」と「1ターン弧長 L=R·θ」を満たすサインカーブを解く。
+ * 制約: R = c²/A（apex 半径） → A = c²/R。c を二分法で弧長に合わせる。
+ * @returns {{ amp: number, wave: number, arc: number }}
  */
-export function forcesAtFraction(frac, params) {
-  const { slope, speed, R, turnAngle, mass } = params;
-  const theta = deg2rad(turnAngle);
-  const phi = (theta / 2) * (1 - 2 * frac); // ヘディング角（+θ/2 → -θ/2）
+export function solveSineFromRTurn(R, turnAngleDeg) {
+  const targetArc = arcLength(R, turnAngleDeg);
+  const arcForC = (c) => sineArcLength((c * c) / R, c);
+  let lo = 0.01;
+  let hi = 1000;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (arcForC(mid) < targetArc) lo = mid;
+    else hi = mid;
+  }
+  const c = (lo + hi) / 2;
+  const amp = (c * c) / R;
+  const wave = 2 * Math.PI * c;
+  return { amp, wave, arc: targetArc };
+}
 
-  // 進行方向（フォールライン +y からの偏角 φ）
-  const tangent = { x: Math.sin(phi), y: Math.cos(phi) };
-  // 遠心力の向き（右ターンで外向き）
-  const outward = { x: Math.cos(phi), y: -Math.sin(phi) };
+export function pathPoint(theta, wavelength, amplitude) {
+  const c = wavelength / (2 * Math.PI);
+  const x = amplitude * Math.sin(theta);
+  const y = c * theta;
+  const dx = amplitude * Math.cos(theta);
+  const dy = c;
+  const ddx = -amplitude * Math.sin(theta);
+  const ddy = 0;
+  return { x, y, dx, dy, ddx, ddy };
+}
+
+export function signedCurvature(dx, dy, ddx, ddy) {
+  const denom = (dx * dx + dy * dy) ** 1.5;
+  if (denom < 1e-12) return 0;
+  return (dx * ddy - dy * ddx) / denom;
+}
+
+function unit(v) {
+  const n = Math.hypot(v[0], v[1]);
+  return n < 1e-12 ? [1, 0] : [v[0] / n, v[1] / n];
+}
+
+export function forcesAt(theta, params) {
+  const { slope, speed, amp, wave, mass } = params;
+  const { x, y, dx, dy, ddx, ddy } = pathPoint(theta, wave, amp);
+  const tangent = unit([dx, dy]);
+  const kappa = signedCurvature(dx, dy, ddx, ddy);
+  const radius = Math.abs(kappa) > 1e-9 ? Math.abs(1 / kappa) : Infinity;
 
   const fgMag = mass * G * Math.sin(deg2rad(slope));
-  const fcMag = (mass * speed * speed) / R;
   const gravity = { x: 0, y: fgMag };
-  const centrifugal = { x: outward.x * fcMag, y: outward.y * fcMag };
+
+  let centrifugal = { x: 0, y: 0 };
+  if (Math.abs(kappa) > 1e-9) {
+    const leftNormal = { x: -tangent[1], y: tangent[0] };
+    const centerDir = kappa > 0 ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
+    const fcMag = mass * speed * speed * Math.abs(kappa);
+    centrifugal = { x: -centerDir.x * fcMag, y: -centerDir.y * fcMag };
+  }
+
   const resultant = {
     x: gravity.x + centrifugal.x,
     y: gravity.y + centrifugal.y,
   };
 
-  // 右ターン円弧上の位置（始点(0,0)基準）
-  const x = R * (Math.cos(phi) - Math.cos(theta / 2));
-  const y = R * (Math.sin(theta / 2) - Math.sin(phi));
-
-  return { frac, phi, x, y, tangent, radius: R, gravity, centrifugal, resultant };
+  return {
+    theta,
+    x,
+    y,
+    tangent: { x: tangent[0], y: tangent[1] },
+    radius,
+    kappa,
+    gravity,
+    centrifugal,
+    resultant,
+  };
 }
 
-/**
- * 連結ターンの軌道（右→左→…を交互に）。
- * 切り替え点はフォールライン(x=0)上、apex が左右に振れる S 字。
- */
-export function samplePath(params, turns = 2, perTurn = 120) {
-  const { R, turnAngle } = params;
-  const theta = deg2rad(turnAngle);
+/** 連結ターン軌道（t:0→2π = 右ターン + 左ターンの S 字） */
+export function samplePath(params, n = 400) {
   const pts = [];
-  let pos = { x: 0, y: 0 };
-  let phi = theta / 2; // 最初（右ターン）の始点ヘディング
-
-  for (let t = 0; t < turns; t++) {
-    const right = t % 2 === 0;
-    for (let i = 0; i <= perTurn; i++) {
-      pts.push({ x: pos.x, y: pos.y });
-      if (i === perTurn) break;
-      const dphi = (theta / perTurn) * (right ? -1 : 1);
-      const ds = R * Math.abs(dphi);
-      pos = { x: pos.x + Math.sin(phi) * ds, y: pos.y + Math.cos(phi) * ds };
-      phi += dphi;
-    }
+  for (let i = 0; i <= n; i++) {
+    const th = (2 * Math.PI * i) / n;
+    const { x, y } = pathPoint(th, params.wave, params.amp);
+    pts.push({ x, y, theta: th });
   }
   return pts;
 }
@@ -100,7 +139,7 @@ export function samplePath(params, turns = 2, perTurn = 120) {
 export function phaseStates(params) {
   return PHASES.map((phase) => ({
     ...phase,
-    state: forcesAtFraction(phase.frac, params),
+    state: forcesAt(phase.theta, params),
   }));
 }
 

@@ -1,9 +1,9 @@
 import {
   PHASE_COLORS,
-  arcLength,
   magnitudes,
   phaseStates,
   samplePath,
+  solveSineFromRTurn,
 } from "./physics.js";
 import { applyI18n, getLang, phaseLabel, setLang, t } from "./i18n.js";
 import { renderOverview, renderPhasePanel } from "./render.js";
@@ -33,13 +33,16 @@ const i18n = { t, phaseLabel };
 function readParams() {
   const R = +els.radius.value;
   const turnAngle = +els.turnAngle.value;
+  const { amp, wave, arc } = solveSineFromRTurn(R, turnAngle);
   return {
     slope: +els.slope.value,
     speed: +els.speed.value,
     R,
     turnAngle,
     mass: +els.mass.value,
-    arc: arcLength(R, turnAngle),
+    amp,
+    wave,
+    arc,
   };
 }
 
@@ -83,8 +86,8 @@ function render() {
   const simParams = {
     slope: params.slope,
     speed: params.speed,
-    R: params.R,
-    turnAngle: params.turnAngle,
+    amp: params.amp,
+    wave: params.wave,
     mass: params.mass,
   };
 
