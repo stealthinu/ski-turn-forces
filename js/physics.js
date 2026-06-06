@@ -1,138 +1,130 @@
 /**
- * 斜面垂直上から見たスキーターンの力計算（サインカーブ・ターンモデル）
+ * 斜面垂直上から見たスキーターンの力計算（エッジ角ベースのカービングモデル）
  *
  * 座標系:
  *   x = 横方向（画面では左右）
  *   y = 降下方向（画面では下向き）
  *
- * 軌道は x = A·sin(t), y = c·t（c = λ/2π）のサインカーブ。
- *   - 曲率半径は場所で変化し、apex（一番外側 t=π/2）で最小 = R、
- *     切り替え（t=0, π）で ∞ になる。
- *   - 入力は「apex の最小半径 R」と「ターンの深さ φ」。
- *     φ は切り替え時の進行方向と斜面下方向（フォールライン）のなす角。
- *     90°=真横を向くまで、45°=斜面下方向に対して45°まで。
- *   - 遠心力 Fc = m·v²/r（r は局所半径）。apex で最大、切り替えで 0。
+ * モデル:
+ *   - 進行方向 φ を斜面下方向（フォールライン）からの偏角とする。
+ *   - エッジ角 ψ(φ) は apex(φ=0) で最大、切り替え(φ=±φmax) で 0。
+ *   - カービング半径 r = R₀·cos(ψ)。R₀ は板のサイドカット半径（フラット時）。
+ *     → apex で最小 R₀·cos(ψmax)、切り替えで R₀（最大）。
+ *   - 経路は φ を +φmax → −φmax と動かして数値積分（ds = r·|dφ|）。
+ *   - φmax は「ターンの深さ」。90°で真横、>90°で切り上がり（uphill）も表現できる。
+ *   - 遠心力 Fc = m·v²/r。半径が場所で変わるので apex で最大。
  */
 
 export const G = 9.81;
 
-/** ターン内の代表フェーズ（1ターン = t:0→π） */
+/** ターン内の代表フェーズ（frac: 0=切り替え, 0.5=apex, … φ = φmax·(1-2·frac)） */
 export const PHASES = [
-  { id: "transition", theta: 0 },
-  { id: "entry", theta: Math.PI / 4 },
-  { id: "apex", theta: Math.PI / 2 },
-  { id: "exit", theta: (3 * Math.PI) / 4 },
+  { id: "transition", frac: 0 },
+  { id: "entry", frac: 0.25 },
+  { id: "apex", frac: 0.5 },
+  { id: "exit", frac: 0.75 },
 ];
 
 export const PHASE_COLORS = ["#7C3AED", "#EA580C", "#DB2777", "#0891B2"];
 
-/** @typedef {{ slope: number, speed: number, amp: number, wave: number, mass: number }} SimParams */
+/** @typedef {{ slope:number, speed:number, R0:number, edgeMax:number, depth:number, mass:number }} SimParams */
 
 const deg2rad = (d) => (d * Math.PI) / 180;
 
-/** サイン1ターン分（t:0→π）の弧長を数値積分 [m] */
-export function sineArcLength(amp, c, steps = 240) {
-  let sum = 0;
-  const dt = Math.PI / steps;
-  for (let i = 0; i < steps; i++) {
-    const t = (i + 0.5) * dt;
-    const dx = amp * Math.cos(t);
-    sum += Math.hypot(dx, c) * dt;
-  }
-  return sum;
+/** エッジ角 ψ(φ)：apex(φ=0)で最大、切り替え(|φ|=φmax)で 0 [rad] */
+function edgeAngleAt(phi, edgeMaxRad, depthRad) {
+  if (depthRad < 1e-6) return edgeMaxRad;
+  return edgeMaxRad * Math.cos((Math.PI * phi) / (2 * depthRad));
+}
+
+/** カービング半径 r(φ) = R₀·cos(ψ) [m] */
+function radiusAt(phi, R0, edgeMaxRad, depthRad) {
+  return R0 * Math.cos(edgeAngleAt(phi, edgeMaxRad, depthRad));
+}
+
+/** apex（最小）半径 = R₀·cos(ψmax) */
+export function apexRadius(R0, edgeMaxDeg) {
+  return R0 * Math.cos(deg2rad(edgeMaxDeg));
+}
+
+/** ヘディング φ における力（右ターン、外向き = 速度の右法線） */
+function forcesAtPhi(phi, params) {
+  const { slope, speed, R0, edgeMax, depth, mass } = params;
+  const edgeRad = deg2rad(edgeMax);
+  const depthRad = deg2rad(depth);
+  const r = radiusAt(phi, R0, edgeRad, depthRad);
+
+  const tangent = { x: Math.sin(phi), y: Math.cos(phi) };
+  const outward = { x: Math.cos(phi), y: -Math.sin(phi) }; // 右ターンの外向き
+
+  const fgMag = mass * G * Math.sin(deg2rad(slope));
+  const fcMag = (mass * speed * speed) / r;
+  const gravity = { x: 0, y: fgMag };
+  const centrifugal = { x: outward.x * fcMag, y: outward.y * fcMag };
+  const resultant = { x: gravity.x + centrifugal.x, y: gravity.y + centrifugal.y };
+
+  return { phi, radius: r, edge: edgeAngleAt(phi, edgeRad, depthRad), tangent, gravity, centrifugal, resultant };
 }
 
 /**
- * 「apex 最小半径 R」と「ターンの深さ φ（切り替え時の進行方向と斜面下方向のなす角）」
- * からサインカーブの振幅 A・波長 λ を解析的に求める。
- *
- * 切り替え(t=0)での進行方向角 φ = atan(A/c)、apex(t=π/2) 半径 = c²/A。
- *   tanφ = A/c かつ R = c²/A  →  c = R·tanφ,  A = R·tan²φ,  λ = 2π·c
- *
- * @returns {{ amp: number, wave: number, arc: number }}
+ * ターンをヘディングで数値積分し、連結ターン軌道・代表フェーズ・派生量を返す。
+ * @param {SimParams} params
  */
-export function solveSineFromRDepth(R, depthDeg) {
-  const tanPhi = Math.tan(deg2rad(Math.min(Math.max(depthDeg, 1), 88)));
-  const c = R * tanPhi;
-  const amp = R * tanPhi * tanPhi;
-  const wave = 2 * Math.PI * c;
-  return { amp, wave, arc: sineArcLength(amp, c) };
-}
+export function simulate(params, turns = 2, perTurn = 200) {
+  const depthRad = deg2rad(params.depth);
+  const edgeRad = deg2rad(params.edgeMax);
 
-export function pathPoint(theta, wavelength, amplitude) {
-  const c = wavelength / (2 * Math.PI);
-  const x = amplitude * Math.sin(theta);
-  const y = c * theta;
-  const dx = amplitude * Math.cos(theta);
-  const dy = c;
-  const ddx = -amplitude * Math.sin(theta);
-  const ddy = 0;
-  return { x, y, dx, dy, ddx, ddy };
-}
+  const path = [];
+  const firstTurn = [];
+  let pos = { x: 0, y: 0 };
+  let phi = depthRad; // 最初（右ターン）の切り替え地点ヘディング
+  let arc = 0;
 
-export function signedCurvature(dx, dy, ddx, ddy) {
-  const denom = (dx * dx + dy * dy) ** 1.5;
-  if (denom < 1e-12) return 0;
-  return (dx * ddy - dy * ddx) / denom;
-}
-
-function unit(v) {
-  const n = Math.hypot(v[0], v[1]);
-  return n < 1e-12 ? [1, 0] : [v[0] / n, v[1] / n];
-}
-
-export function forcesAt(theta, params) {
-  const { slope, speed, amp, wave, mass } = params;
-  const { x, y, dx, dy, ddx, ddy } = pathPoint(theta, wave, amp);
-  const tangent = unit([dx, dy]);
-  const kappa = signedCurvature(dx, dy, ddx, ddy);
-  const radius = Math.abs(kappa) > 1e-9 ? Math.abs(1 / kappa) : Infinity;
-
-  const fgMag = mass * G * Math.sin(deg2rad(slope));
-  const gravity = { x: 0, y: fgMag };
-
-  let centrifugal = { x: 0, y: 0 };
-  if (Math.abs(kappa) > 1e-9) {
-    const leftNormal = { x: -tangent[1], y: tangent[0] };
-    const centerDir = kappa > 0 ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
-    const fcMag = mass * speed * speed * Math.abs(kappa);
-    centrifugal = { x: -centerDir.x * fcMag, y: -centerDir.y * fcMag };
+  for (let t = 0; t < turns; t++) {
+    const right = t % 2 === 0;
+    for (let i = 0; i <= perTurn; i++) {
+      path.push({ x: pos.x, y: pos.y });
+      if (t === 0) firstTurn.push({ phi, x: pos.x, y: pos.y });
+      if (i === perTurn) break;
+      const dphi = ((2 * depthRad) / perTurn) * (right ? -1 : 1);
+      const phiMid = phi + dphi / 2;
+      const r = radiusAt(phiMid, params.R0, edgeRad, depthRad);
+      const ds = r * Math.abs(dphi);
+      if (t === 0) arc += ds;
+      pos = { x: pos.x + Math.sin(phiMid) * ds, y: pos.y + Math.cos(phiMid) * ds };
+      phi += dphi;
+    }
   }
 
-  const resultant = {
-    x: gravity.x + centrifugal.x,
-    y: gravity.y + centrifugal.y,
-  };
+  const phases = PHASES.map((p) => {
+    const targetPhi = depthRad * (1 - 2 * p.frac);
+    let best = firstTurn[0];
+    for (const s of firstTurn) {
+      if (Math.abs(s.phi - targetPhi) < Math.abs(best.phi - targetPhi)) best = s;
+    }
+    const f = forcesAtPhi(targetPhi, params);
+    return {
+      ...p,
+      state: {
+        x: best.x,
+        y: best.y,
+        tangent: f.tangent,
+        radius: f.radius,
+        edge: f.edge,
+        gravity: f.gravity,
+        centrifugal: f.centrifugal,
+        resultant: f.resultant,
+      },
+    };
+  });
 
   return {
-    theta,
-    x,
-    y,
-    tangent: { x: tangent[0], y: tangent[1] },
-    radius,
-    kappa,
-    gravity,
-    centrifugal,
-    resultant,
+    path,
+    phases,
+    apexRadius: apexRadius(params.R0, params.edgeMax),
+    arc,
+    maxHeading: params.depth,
   };
-}
-
-/** 連結ターン軌道（t:0→2π = 右ターン + 左ターンの S 字） */
-export function samplePath(params, n = 400) {
-  const pts = [];
-  for (let i = 0; i <= n; i++) {
-    const th = (2 * Math.PI * i) / n;
-    const { x, y } = pathPoint(th, params.wave, params.amp);
-    pts.push({ x, y, theta: th });
-  }
-  return pts;
-}
-
-export function phaseStates(params) {
-  return PHASES.map((phase) => ({
-    ...phase,
-    state: forcesAt(phase.theta, params),
-  }));
 }
 
 export function magnitudes(state) {

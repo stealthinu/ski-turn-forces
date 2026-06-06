@@ -1,10 +1,4 @@
-import {
-  PHASE_COLORS,
-  magnitudes,
-  phaseStates,
-  samplePath,
-  solveSineFromRDepth,
-} from "./physics.js";
+import { PHASE_COLORS, magnitudes, simulate } from "./physics.js";
 import { applyI18n, getLang, phaseLabel, setLang, t } from "./i18n.js";
 import { renderOverview, renderPhasePanel } from "./render.js";
 
@@ -15,14 +9,16 @@ const els = {
   slope: document.getElementById("slope"),
   speed: document.getElementById("speed"),
   radius: document.getElementById("radius"),
+  edge: document.getElementById("edge"),
   depth: document.getElementById("depth"),
   mass: document.getElementById("mass"),
   vSlope: document.getElementById("v-slope"),
   vSpeed: document.getElementById("v-speed"),
   vRadius: document.getElementById("v-radius"),
+  vEdge: document.getElementById("v-edge"),
   vDepth: document.getElementById("v-depth"),
+  vApex: document.getElementById("v-apex"),
   vArc: document.getElementById("v-arc"),
-  vAmp: document.getElementById("v-amp"),
   vMass: document.getElementById("v-mass"),
   tbody: document.querySelector("#data-table tbody"),
   langJa: document.getElementById("lang-ja"),
@@ -32,28 +28,24 @@ const els = {
 const i18n = { t, phaseLabel };
 
 function readParams() {
-  const R = +els.radius.value;
-  const depth = +els.depth.value;
-  const { amp, wave, arc } = solveSineFromRDepth(R, depth);
   return {
     slope: +els.slope.value,
     speed: +els.speed.value,
-    R,
-    depth,
+    R0: +els.radius.value,
+    edgeMax: +els.edge.value,
+    depth: +els.depth.value,
     mass: +els.mass.value,
-    amp,
-    wave,
-    arc,
   };
 }
 
-function updateValueLabels(params) {
+function updateValueLabels(params, sim) {
   els.vSlope.textContent = String(params.slope);
   els.vSpeed.textContent = params.speed.toFixed(1);
-  els.vRadius.textContent = params.R.toFixed(1);
+  els.vRadius.textContent = params.R0.toFixed(1);
+  els.vEdge.textContent = String(params.edgeMax);
   els.vDepth.textContent = String(params.depth);
-  els.vArc.textContent = params.arc.toFixed(1);
-  els.vAmp.textContent = params.amp.toFixed(1);
+  els.vApex.textContent = sim.apexRadius.toFixed(1);
+  els.vArc.textContent = sim.arc.toFixed(1);
   els.vMass.textContent = String(params.mass);
 }
 
@@ -83,24 +75,16 @@ function updateTable(phases) {
 
 function render() {
   const params = readParams();
-  updateValueLabels(params);
+  const sim = simulate(params);
+  updateValueLabels(params, sim);
 
-  const simParams = {
-    slope: params.slope,
-    speed: params.speed,
-    amp: params.amp,
-    wave: params.wave,
-    mass: params.mass,
-  };
-
-  const path = samplePath(simParams);
-  const phases = phaseStates(simParams).map((p, i) => ({
+  const phases = sim.phases.map((p, i) => ({
     ...p,
     label: phaseLabel(p.id),
     color: PHASE_COLORS[i],
   }));
 
-  renderOverview(overviewCanvas, simParams, phases, path, i18n);
+  renderOverview(overviewCanvas, params, phases, sim.path, i18n);
   phaseCanvases.forEach((canvas, i) => renderPhasePanel(canvas, phases[i], i18n));
   updateTable(phases);
 }
@@ -116,7 +100,7 @@ document.documentElement.lang = getLang() === "ja" ? "ja" : "en";
 applyI18n();
 updateLangButtons();
 
-["slope", "speed", "radius", "depth", "mass"].forEach((id) => {
+["slope", "speed", "radius", "edge", "depth", "mass"].forEach((id) => {
   document.getElementById(id).addEventListener("input", render);
 });
 els.langJa?.addEventListener("click", () => switchLang("ja"));
