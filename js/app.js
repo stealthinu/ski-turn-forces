@@ -9,16 +9,14 @@ const els = {
   slope: document.getElementById("slope"),
   speed: document.getElementById("speed"),
   radius: document.getElementById("radius"),
-  edge: document.getElementById("edge"),
-  depth: document.getElementById("depth"),
+  length: document.getElementById("length"),
   mass: document.getElementById("mass"),
   vSlope: document.getElementById("v-slope"),
   vSpeed: document.getElementById("v-speed"),
   vRadius: document.getElementById("v-radius"),
-  vEdge: document.getElementById("v-edge"),
+  vLength: document.getElementById("v-length"),
   vDepth: document.getElementById("v-depth"),
-  vApex: document.getElementById("v-apex"),
-  vArc: document.getElementById("v-arc"),
+  vWidth: document.getElementById("v-width"),
   vMass: document.getElementById("v-mass"),
   tbody: document.querySelector("#data-table tbody"),
   langJa: document.getElementById("lang-ja"),
@@ -31,9 +29,8 @@ function readParams() {
   return {
     slope: +els.slope.value,
     speed: +els.speed.value,
-    R0: +els.radius.value,
-    edgeMax: +els.edge.value,
-    depth: +els.depth.value,
+    R: +els.radius.value,
+    length: +els.length.value,
     mass: +els.mass.value,
   };
 }
@@ -41,11 +38,10 @@ function readParams() {
 function updateValueLabels(params, sim) {
   els.vSlope.textContent = String(params.slope);
   els.vSpeed.textContent = params.speed.toFixed(1);
-  els.vRadius.textContent = params.R0.toFixed(1);
-  els.vEdge.textContent = String(params.edgeMax);
-  els.vDepth.textContent = String(params.depth);
-  els.vApex.textContent = sim.apexRadius.toFixed(1);
-  els.vArc.textContent = sim.arc.toFixed(1);
+  els.vRadius.textContent = params.R.toFixed(1);
+  els.vLength.textContent = params.length.toFixed(0);
+  els.vDepth.textContent = sim.depthDeg.toFixed(0);
+  els.vWidth.textContent = sim.width.toFixed(1);
   els.vMass.textContent = String(params.mass);
 }
 
@@ -100,7 +96,7 @@ document.documentElement.lang = getLang() === "ja" ? "ja" : "en";
 applyI18n();
 updateLangButtons();
 
-["slope", "speed", "radius", "edge", "depth", "mass"].forEach((id) => {
+["slope", "speed", "radius", "length", "mass"].forEach((id) => {
   document.getElementById(id).addEventListener("input", render);
 });
 els.langJa?.addEventListener("click", () => switchLang("ja"));
