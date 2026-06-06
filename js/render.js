@@ -12,8 +12,8 @@ const COLORS = {
   muted: "#64748B",
 };
 
-/** λ=40m 時に降下方向が画面の約85%になる基準スケール [px/m] */
-const REF_TURN_LENGTH = 40;
+/** この λ[m] が描画領域の高さいっぱいになる基準（λ が小さいほど画面でも短く表示） */
+const REF_TURN_LENGTH = 80;
 
 export function drawArrow(ctx, x1, y1, x2, y2, color, width = 2) {
   const head = Math.max(7, width * 3.5);
@@ -86,9 +86,12 @@ export function makeTransform(canvas, bounds, padding = 48) {
 }
 
 /**
- * 俯瞰図用: λ に比例した固定スケール（短いλ→画面上も短く表示）
+ * 俯瞰図用スケール。
+ * λ=REF_TURN_LENGTH が高さいっぱいになる固定 px/m を基準にし、
+ * λ が小さければ画面上でも短く（上端そろえで）表示する。
+ * データがはみ出す場合のみ縮小してフィットさせる。
  */
-export function makeOverviewTransform(canvas, bounds, turnLength, padding = 48) {
+export function makeOverviewTransform(canvas, bounds, padding = 48) {
   const { minX, maxX, minY, maxY } = bounds;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
@@ -100,19 +103,15 @@ export function makeOverviewTransform(canvas, bounds, turnLength, padding = 48) 
   const dataW = maxX - minX || 1;
   const dataH = maxY - minY || 1;
 
-  let s = (plotH * 0.85) / REF_TURN_LENGTH;
-  const needH = dataH * s;
-  const needW = dataW * s;
-  if (needH > plotH || needW > plotW) {
-    s = Math.min(plotH / dataH, plotW / dataW);
-  }
+  let s = plotH / REF_TURN_LENGTH; // 固定 px/m
+  s = Math.min(s, plotH / dataH, plotW / dataW); // はみ出す場合のみ縮小
 
-  const cx = padding + (plotW - dataW * s) / 2;
-  const cy = padding + (plotH - dataH * s) / 2;
+  const cx = padding + (plotW - dataW * s) / 2; // 横は中央
+  const cy = padding; // 縦は上端そろえ → λ が短いと下に余白が残る
 
   const worldToScreen = (x, y) => [cx + (x - minX) * s, cy + (y - minY) * s];
 
-  return { ctx: canvas.getContext("2d"), w, h, s, worldToScreen, padding, turnLength };
+  return { ctx: canvas.getContext("2d"), w, h, s, worldToScreen, padding };
 }
 
 export function clearCanvas(ctx, w, h) {
@@ -132,7 +131,6 @@ export function renderOverview(canvas, params, phases, path, i18n) {
   const t = makeOverviewTransform(
     canvas,
     { minX: -lateral, maxX: lateral, minY: -2, maxY: maxDown + 3 },
-    params.wave,
   );
   const { ctx, w, h, worldToScreen } = t;
 

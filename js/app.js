@@ -1,9 +1,9 @@
 import {
   PHASE_COLORS,
-  ampFromApexRadius,
   magnitudes,
   phaseStates,
   samplePath,
+  turnLengthFromAmpRadius,
 } from "./physics.js";
 import { applyI18n, getLang, phaseLabel, setLang, t } from "./i18n.js";
 import { renderOverview, renderPhasePanel } from "./render.js";
@@ -15,7 +15,7 @@ const els = {
   slope: document.getElementById("slope"),
   speed: document.getElementById("speed"),
   radius: document.getElementById("radius"),
-  wave: document.getElementById("wave"),
+  amp: document.getElementById("amp"),
   mass: document.getElementById("mass"),
   vSlope: document.getElementById("v-slope"),
   vSpeed: document.getElementById("v-speed"),
@@ -31,14 +31,15 @@ const els = {
 const i18n = { t, phaseLabel };
 
 function readParams() {
-  const wave = +els.wave.value;
   const apexR = +els.radius.value;
+  const amp = +els.amp.value;
+  const wave = turnLengthFromAmpRadius(amp, apexR);
   return {
     slope: +els.slope.value,
     speed: +els.speed.value,
     wave,
     mass: +els.mass.value,
-    amp: ampFromApexRadius(wave, apexR),
+    amp,
     apexR,
   };
 }
@@ -47,9 +48,9 @@ function updateValueLabels(params) {
   els.vSlope.textContent = String(params.slope);
   els.vSpeed.textContent = params.speed.toFixed(1);
   els.vRadius.textContent = params.apexR.toFixed(1);
-  els.vWave.textContent = String(params.wave);
-  els.vMass.textContent = String(params.mass);
   els.vAmp.textContent = params.amp.toFixed(1);
+  els.vWave.textContent = params.wave.toFixed(0);
+  els.vMass.textContent = String(params.mass);
 }
 
 function updateLangButtons() {
@@ -111,7 +112,7 @@ document.documentElement.lang = getLang() === "ja" ? "ja" : "en";
 applyI18n();
 updateLangButtons();
 
-["slope", "speed", "radius", "wave", "mass"].forEach((id) => {
+["slope", "speed", "radius", "amp", "mass"].forEach((id) => {
   document.getElementById(id).addEventListener("input", render);
 });
 els.langJa?.addEventListener("click", () => switchLang("ja"));

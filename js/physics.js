@@ -29,6 +29,15 @@ export function apexRadius(wavelength, amplitude) {
 }
 
 /**
+ * 横振幅 A と apex ターン半径 R から1ターンの降下距離 λ を導出。
+ * R = (λ/2π)² / A  →  λ = 2π·√(A·R)
+ * （R を小さくすれば λ も短くなる）
+ */
+export function turnLengthFromAmpRadius(amplitude, apexR) {
+  return 2 * Math.PI * Math.sqrt(Math.max(amplitude, 0.01) * Math.max(apexR, 0.01));
+}
+
+/**
  * 斜面垂直上から見た座標系:
  *   x = 横方向（画面では左右）
  *   y = 降下方向（画面では下向き）

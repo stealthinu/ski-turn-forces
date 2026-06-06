@@ -40,10 +40,10 @@
       </label>
 
       <label>
-        <span><span data-i18n="turnLength">1ターンの降下距離 λ</span> <strong id="v-wave">40</strong> m</span>
-        <input type="range" id="wave" min="20" max="80" step="2" value="40" />
+        <span><span data-i18n="amplitude">横振幅 A</span> <strong id="v-amp">4.0</strong> m</span>
+        <input type="range" id="amp" min="2" max="12" step="0.5" value="4" />
       </label>
-      <p class="param-hint" data-i18n="turnLengthHint">進行（降下）方向に1サイクル進む距離</p>
+      <p class="param-hint" data-i18n="amplitudeHint">ターンで左右に振れる片振幅（谷側・山側への振り幅）</p>
 
       <label>
         <span><span data-i18n="mass">質量 m</span> <strong id="v-mass">60</strong> kg</span>
@@ -51,9 +51,9 @@
       </label>
 
       <p class="derived">
-        <span data-i18n="derivedAmp">算出横振幅 A ≈</span>
-        <strong id="v-amp">4.1</strong> m
-        <span data-i18n="derivedNote">（R と λ から自動計算）</span>
+        <span data-i18n="derivedLambda">1ターンの降下距離 λ ≈</span>
+        <strong id="v-wave">40</strong> m
+        <span data-i18n="derivedLambdaNote">（A と R から自動計算）</span>
       </p>
 
       <div class="legend">
