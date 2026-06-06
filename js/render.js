@@ -12,15 +12,9 @@ const COLORS = {
   muted: "#64748B",
 };
 
-/**
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} x1
- * @param {number} y1
- * @param {number} x2
- * @param {number} y2
- * @param {string} color
- * @param {number} width
- */
+/** λ=40m 時に降下方向が画面の約85%になる基準スケール [px/m] */
+const REF_TURN_LENGTH = 40;
+
 export function drawArrow(ctx, x1, y1, x2, y2, color, width = 2) {
   const head = Math.max(7, width * 3.5);
   const angle = Math.atan2(y2 - y1, x2 - x1);
@@ -43,46 +37,31 @@ export function drawArrow(ctx, x1, y1, x2, y2, color, width = 2) {
 }
 
 /**
- * ずらし平行四辺形法で3力を描画
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} ox 画面座標
- * @param {number} oy
- * @param {{ x: number, y: number }} fg 力ベクトル [N]
- * @param {{ x: number, y: number }} fc
- * @param {{ x: number, y: number }} fnet
- * @param {number} scale px/N
+ * スキーヤー位置を共通原点とする平行四辺形法
+ * Fg, Fc ともスキーヤーから出発し、合力でひし形を完成
  */
 export function drawForceParallelogram(ctx, ox, oy, fg, fc, fnet, scale) {
-  // 世界座標: +x=右, +y=降下（画面も同じ向き）
   const fgTip = [ox + fg.x * scale, oy + fg.y * scale];
-  const fcTip = [fgTip[0] + fc.x * scale, fgTip[1] + fc.y * scale];
+  const fcTip = [ox + fc.x * scale, oy + fc.y * scale];
   const netTip = [ox + fnet.x * scale, oy + fnet.y * scale];
 
   ctx.save();
-  ctx.setLineDash([5, 4]);
+  ctx.setLineDash([4, 4]);
   ctx.strokeStyle = COLORS.guide;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(ox, oy);
-  ctx.lineTo(fgTip[0], fgTip[1]);
   ctx.moveTo(fgTip[0], fgTip[1]);
+  ctx.lineTo(netTip[0], netTip[1]);
   ctx.lineTo(fcTip[0], fcTip[1]);
-  ctx.stroke();
-  ctx.setLineDash([2, 4]);
-  ctx.beginPath();
-  ctx.moveTo(ox, oy);
-  ctx.lineTo(netTip[0], netTip[1]);
-  ctx.moveTo(fcTip[0], fcTip[1]);
-  ctx.lineTo(netTip[0], netTip[1]);
   ctx.stroke();
   ctx.restore();
 
   drawArrow(ctx, ox, oy, fgTip[0], fgTip[1], COLORS.gravity, 2.2);
-  drawArrow(ctx, fgTip[0], fgTip[1], fcTip[0], fcTip[1], COLORS.centrifugal, 2.2);
+  drawArrow(ctx, ox, oy, fcTip[0], fcTip[1], COLORS.centrifugal, 2.2);
   drawArrow(ctx, ox, oy, netTip[0], netTip[1], COLORS.resultant, 3);
 }
 
-/** ワールド→画面の変換を作る */
+/** ワールド→画面の変換（汎用・等倍フィット） */
 export function makeTransform(canvas, bounds, padding = 48) {
   const { minX, maxX, minY, maxY } = bounds;
   const w = canvas.clientWidth;
@@ -101,17 +80,41 @@ export function makeTransform(canvas, bounds, padding = 48) {
   const cx = padding + (plotW - dataW * s) / 2;
   const cy = padding + (plotH - dataH * s) / 2;
 
-  /** 世界 (x=横, y=降下) → 画面 (+x=右, +y=下) */
   const worldToScreen = (x, y) => [cx + (x - minX) * s, cy + (y - minY) * s];
 
   return { ctx: canvas.getContext("2d"), w, h, s, worldToScreen, padding, minX, maxX, minY, maxY };
 }
 
 /**
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} w
- * @param {number} h
+ * 俯瞰図用: λ に比例した固定スケール（短いλ→画面上も短く表示）
  */
+export function makeOverviewTransform(canvas, bounds, turnLength, padding = 48) {
+  const { minX, maxX, minY, maxY } = bounds;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  canvas.width = w * devicePixelRatio;
+  canvas.height = h * devicePixelRatio;
+
+  const plotW = w - padding * 2;
+  const plotH = h - padding * 2;
+  const dataW = maxX - minX || 1;
+  const dataH = maxY - minY || 1;
+
+  let s = (plotH * 0.85) / REF_TURN_LENGTH;
+  const needH = dataH * s;
+  const needW = dataW * s;
+  if (needH > plotH || needW > plotW) {
+    s = Math.min(plotH / dataH, plotW / dataW);
+  }
+
+  const cx = padding + (plotW - dataW * s) / 2;
+  const cy = padding + (plotH - dataH * s) / 2;
+
+  const worldToScreen = (x, y) => [cx + (x - minX) * s, cy + (y - minY) * s];
+
+  return { ctx: canvas.getContext("2d"), w, h, s, worldToScreen, padding, turnLength };
+}
+
 export function clearCanvas(ctx, w, h) {
   ctx.save();
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
@@ -121,22 +124,21 @@ export function clearCanvas(ctx, w, h) {
 }
 
 /**
- * メイン俯瞰図
- * @param {HTMLCanvasElement} canvas
- * @param {import('./physics.js').SimParams} params
- * @param {ReturnType<import('./physics.js').phaseStates>} phases
- * @param {ReturnType<import('./physics.js').samplePath>} path
+ * @param {import('./i18n.js')} i18n
  */
-export function renderOverview(canvas, params, phases, path) {
+export function renderOverview(canvas, params, phases, path, i18n) {
   const maxDown = Math.max(...path.map((p) => p.y));
   const lateral = params.amp * 1.35;
-  const t = makeTransform(canvas, { minX: -lateral, maxX: lateral, minY: -2, maxY: maxDown + 3 });
+  const t = makeOverviewTransform(
+    canvas,
+    { minX: -lateral, maxX: lateral, minY: -2, maxY: maxDown + 3 },
+    params.wave,
+  );
   const { ctx, w, h, worldToScreen } = t;
 
   clearCanvas(ctx, w, h);
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-  // グリッド（横線 = 降下方向の目安）
   ctx.strokeStyle = COLORS.grid;
   ctx.lineWidth = 1;
   for (let i = 0; i <= 8; i++) {
@@ -147,7 +149,6 @@ export function renderOverview(canvas, params, phases, path) {
     ctx.stroke();
   }
 
-  // 中心線 x=0（切り替えライン）と降下方向矢印
   const [cx0, cy0] = worldToScreen(0, 0);
   const [, cy1] = worldToScreen(0, maxDown * 0.35);
   ctx.strokeStyle = COLORS.axis;
@@ -159,9 +160,8 @@ export function renderOverview(canvas, params, phases, path) {
   ctx.fillStyle = COLORS.muted;
   ctx.font = "11px 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("降下方向 y", cx0 + 6, cy0 + 52);
+  ctx.fillText(i18n.t("downhill"), cx0 + 6, cy0 + 52);
 
-  // 軌道
   ctx.strokeStyle = COLORS.path;
   ctx.lineWidth = 2.5;
   ctx.lineJoin = "round";
@@ -173,19 +173,17 @@ export function renderOverview(canvas, params, phases, path) {
   });
   ctx.stroke();
 
-  // 力のスケール
   let maxF = 1;
   phases.forEach(({ state }) => {
     const fg = Math.hypot(state.gravity.x, state.gravity.y);
     const fc = Math.hypot(state.centrifugal.x, state.centrifugal.y);
     maxF = Math.max(maxF, fg + fc);
   });
-  const forceScale = 42 / maxF; // 世界座標 m/N 換算前のpx係数
+  const forceScale = 42 / maxF;
 
-  phases.forEach(({ label, state, color }, i) => {
+  phases.forEach(({ label, state, color }) => {
     const [px, py] = worldToScreen(state.x, state.y);
 
-    // マーカー
     ctx.beginPath();
     ctx.arc(px, py, 7, 0, Math.PI * 2);
     ctx.fillStyle = color;
@@ -201,7 +199,6 @@ export function renderOverview(canvas, params, phases, path) {
 
     drawForceParallelogram(ctx, px, py, state.gravity, state.centrifugal, state.resultant, forceScale);
 
-    // 数値ボックス
     const fg = Math.hypot(state.gravity.x, state.gravity.y);
     const fc = Math.hypot(state.centrifugal.x, state.centrifugal.y);
     const fn = Math.hypot(state.resultant.x, state.resultant.y);
@@ -228,24 +225,18 @@ export function renderOverview(canvas, params, phases, path) {
     lines.forEach((line, li) => ctx.fillText(line, bx + 6, by + 12 + li * 12));
   });
 
-  // 軸ラベル
   ctx.fillStyle = COLORS.muted;
   ctx.font = "12px 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("横方向 x [m]", w / 2, h - 12);
+  ctx.fillText(i18n.t("axisX"), w / 2, h - 12);
   ctx.save();
   ctx.translate(16, h / 2);
   ctx.rotate(-Math.PI / 2);
-  ctx.fillText("降下方向 y [m]", 0, 0);
+  ctx.fillText(i18n.t("axisY"), 0, 0);
   ctx.restore();
 }
 
-/**
- * フェーズ拡大パネル
- * @param {HTMLCanvasElement} canvas
- * @param {{ label: string, state: object, color: string }} phase
- */
-export function renderPhasePanel(canvas, phase) {
+export function renderPhasePanel(canvas, phase, i18n) {
   const { label, state, color } = phase;
   const margin = 3.5;
   const t = makeTransform(canvas, {
@@ -259,7 +250,6 @@ export function renderPhasePanel(canvas, phase) {
   clearCanvas(ctx, w, h);
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-  // グリッド
   ctx.strokeStyle = COLORS.grid;
   for (let i = 0; i <= 4; i++) {
     const y = 28 + ((h - 56) * i) / 4;
@@ -282,7 +272,6 @@ export function renderPhasePanel(canvas, phase) {
 
   drawForceParallelogram(ctx, px, py, state.gravity, state.centrifugal, state.resultant, forceScale);
 
-  // 速度方向
   const tv = 1.8;
   const [vx, vy] = worldToScreen(
     state.x + state.tangent.x * tv,
@@ -301,7 +290,13 @@ export function renderPhasePanel(canvas, phase) {
   ctx.font = "10px 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif";
   const fn = Math.hypot(state.resultant.x, state.resultant.y);
   const rTxt = Number.isFinite(state.radius) ? state.radius.toFixed(1) : "∞";
-  const info = [`R ≈ ${rTxt} m`, `|Fg| = ${fg.toFixed(0)} N`, `|Fc| = ${fc.toFixed(0)} N`, `|F合| = ${fn.toFixed(0)} N`];
+  const fNetLabel = i18n.t("resultantShort");
+  const info = [
+    `R ≈ ${rTxt} m`,
+    `|Fg| = ${fg.toFixed(0)} N`,
+    `|Fc| = ${fc.toFixed(0)} N`,
+    `|${fNetLabel}| = ${fn.toFixed(0)} N`,
+  ];
   info.forEach((line, i) => ctx.fillText(line, 10, h - 52 + i * 13));
 }
 

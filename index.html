@@ -8,74 +8,87 @@
 </head>
 <body>
   <header>
-    <h1>スキーターン — 斜面垂直上からの力ベクトル</h1>
-    <p>スライダーを動かすと即座に再計算・再描画されます（Python 不要・ブラウザのみ）</p>
+    <div class="header-row">
+      <div>
+        <h1 data-i18n="headerTitle">スキーターン — 斜面垂直上からの力ベクトル</h1>
+        <p data-i18n="headerSub">スライダーを動かすと即座に再計算・再描画されます</p>
+      </div>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" id="lang-ja" class="lang-btn active">日本語</button>
+        <button type="button" id="lang-en" class="lang-btn">English</button>
+      </div>
+    </div>
   </header>
 
   <div class="layout">
     <aside class="controls">
-      <h2>パラメータ</h2>
+      <h2 data-i18n="params">パラメータ</h2>
 
       <label>
-        <span>斜面角度 α <strong id="v-slope">20</strong>°</span>
+        <span><span data-i18n="slope">斜面角度 α</span> <strong id="v-slope">20</strong>°</span>
         <input type="range" id="slope" min="5" max="45" step="1" value="20" />
       </label>
 
       <label>
-        <span>速度 v <strong id="v-speed">15.0</strong> m/s</span>
+        <span><span data-i18n="speed">速度 v</span> <strong id="v-speed">15.0</strong> m/s</span>
         <input type="range" id="speed" min="3" max="22" step="0.5" value="15" />
       </label>
 
       <label>
-        <span>ターン半径 R（apex） <strong id="v-radius">10.0</strong> m</span>
+        <span><span data-i18n="radius">ターン半径 R（apex）</span> <strong id="v-radius">10.0</strong> m</span>
         <input type="range" id="radius" min="3" max="25" step="0.2" value="10" />
       </label>
 
       <label>
-        <span>波長 λ <strong id="v-wave">40</strong> m</span>
+        <span><span data-i18n="turnLength">1ターンの降下距離 λ</span> <strong id="v-wave">40</strong> m</span>
         <input type="range" id="wave" min="20" max="80" step="2" value="40" />
       </label>
+      <p class="param-hint" data-i18n="turnLengthHint">進行（降下）方向に1サイクル進む距離</p>
 
       <label>
-        <span>質量 m <strong id="v-mass">60</strong> kg</span>
+        <span><span data-i18n="mass">質量 m</span> <strong id="v-mass">60</strong> kg</span>
         <input type="range" id="mass" min="50" max="90" step="1" value="60" />
       </label>
 
-      <p class="derived">算出横振幅 A ≈ <strong id="v-amp">4.1</strong> m（R と λ から自動計算）</p>
+      <p class="derived">
+        <span data-i18n="derivedAmp">算出横振幅 A ≈</span>
+        <strong id="v-amp">4.1</strong> m
+        <span data-i18n="derivedNote">（R と λ から自動計算）</span>
+      </p>
 
       <div class="legend">
-        <span><i class="swatch" style="background:#2563eb"></i>斜面方向重力 Fg = mg·sinα</span>
-        <span><i class="swatch" style="background:#dc2626"></i>遠心力 Fc = mv²/R</span>
-        <span><i class="swatch" style="background:#059669"></i>合力 F = Fg + Fc</span>
+        <span><i class="swatch" style="background:#2563eb"></i><span data-i18n="legendGravity">斜面方向重力 Fg = mg·sinα</span></span>
+        <span><i class="swatch" style="background:#dc2626"></i><span data-i18n="legendCentrifugal">遠心力 Fc = mv²/R</span></span>
+        <span><i class="swatch" style="background:#059669"></i><span data-i18n="legendResultant">合力 F = Fg + Fc</span></span>
       </div>
 
       <table id="data-table">
         <thead>
           <tr>
-            <th>フェーズ</th>
-            <th>R [m]</th>
-            <th>|Fg|</th>
-            <th>|Fc|</th>
-            <th>|F|</th>
-            <th>∠F [°]</th>
+            <th data-i18n="thPhase">フェーズ</th>
+            <th data-i18n="thRadius">R [m]</th>
+            <th data-i18n="thFg">|Fg|</th>
+            <th data-i18n="thFc">|Fc|</th>
+            <th data-i18n="thF">|F|</th>
+            <th data-i18n="thAngle">∠F [°]</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
 
-      <p class="hint">
+      <p class="hint" data-i18n="hint">
         静的 HTML/CSS/JS のみで動作します。GitHub Pages などにそのまま公開できます。
       </p>
     </aside>
 
     <div class="view">
       <section class="panel">
-        <h3>俯瞰図（サインカーブ軌道 + 各フェーズの力）</h3>
+        <h3 data-i18n="overviewTitle">俯瞰図（サインカーブ軌道 + 各フェーズの力）</h3>
         <canvas id="overview"></canvas>
       </section>
 
       <section class="panel">
-        <h3>フェーズ別拡大（ずらし平行四辺形）</h3>
+        <h3 data-i18n="phasesTitle">フェーズ別拡大（スキーヤー原点の平行四辺形）</h3>
         <div class="phases">
           <div class="phase-card"><canvas class="phase-canvas" data-i="0"></canvas></div>
           <div class="phase-card"><canvas class="phase-canvas" data-i="1"></canvas></div>

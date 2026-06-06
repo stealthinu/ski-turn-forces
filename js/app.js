@@ -5,6 +5,7 @@ import {
   phaseStates,
   samplePath,
 } from "./physics.js";
+import { applyI18n, getLang, phaseLabel, setLang, t } from "./i18n.js";
 import { renderOverview, renderPhasePanel } from "./render.js";
 
 const overviewCanvas = document.getElementById("overview");
@@ -23,7 +24,11 @@ const els = {
   vMass: document.getElementById("v-mass"),
   vAmp: document.getElementById("v-amp"),
   tbody: document.querySelector("#data-table tbody"),
+  langJa: document.getElementById("lang-ja"),
+  langEn: document.getElementById("lang-en"),
 };
+
+const i18n = { t, phaseLabel };
 
 function readParams() {
   const wave = +els.wave.value;
@@ -38,13 +43,19 @@ function readParams() {
   };
 }
 
-function updateLabels(params) {
+function updateValueLabels(params) {
   els.vSlope.textContent = String(params.slope);
   els.vSpeed.textContent = params.speed.toFixed(1);
   els.vRadius.textContent = params.apexR.toFixed(1);
   els.vWave.textContent = String(params.wave);
   els.vMass.textContent = String(params.mass);
   els.vAmp.textContent = params.amp.toFixed(1);
+}
+
+function updateLangButtons() {
+  const lang = getLang();
+  els.langJa?.classList.toggle("active", lang === "ja");
+  els.langEn?.classList.toggle("active", lang === "en");
 }
 
 function updateTable(phases) {
@@ -67,7 +78,7 @@ function updateTable(phases) {
 
 function render() {
   const params = readParams();
-  updateLabels(params);
+  updateValueLabels(params);
 
   const simParams = {
     slope: params.slope,
@@ -80,16 +91,30 @@ function render() {
   const path = samplePath(simParams);
   const phases = phaseStates(simParams).map((p, i) => ({
     ...p,
+    label: phaseLabel(p.id),
     color: PHASE_COLORS[i],
   }));
 
-  renderOverview(overviewCanvas, simParams, phases, path);
-  phaseCanvases.forEach((canvas, i) => renderPhasePanel(canvas, phases[i]));
+  renderOverview(overviewCanvas, simParams, phases, path, i18n);
+  phaseCanvases.forEach((canvas, i) => renderPhasePanel(canvas, phases[i], i18n));
   updateTable(phases);
 }
+
+function switchLang(lang) {
+  setLang(lang);
+  applyI18n();
+  updateLangButtons();
+  render();
+}
+
+document.documentElement.lang = getLang() === "ja" ? "ja" : "en";
+applyI18n();
+updateLangButtons();
 
 ["slope", "speed", "radius", "wave", "mass"].forEach((id) => {
   document.getElementById(id).addEventListener("input", render);
 });
+els.langJa?.addEventListener("click", () => switchLang("ja"));
+els.langEn?.addEventListener("click", () => switchLang("en"));
 window.addEventListener("resize", render);
 render();

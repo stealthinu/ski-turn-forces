@@ -3,10 +3,10 @@
 export const G = 9.81;
 
 export const PHASES = [
-  { id: "transition", label: "切り替え", theta: 0 },
-  { id: "entry", label: "ターン前半", theta: Math.PI / 4 },
-  { id: "apex", label: "一番外側", theta: Math.PI / 2 },
-  { id: "exit", label: "ターン後半", theta: (3 * Math.PI) / 4 },
+  { id: "transition", theta: 0 },
+  { id: "entry", theta: Math.PI / 4 },
+  { id: "apex", theta: Math.PI / 2 },
+  { id: "exit", theta: (3 * Math.PI) / 4 },
 ];
 
 export const PHASE_COLORS = ["#7C3AED", "#EA580C", "#DB2777", "#0891B2"];
