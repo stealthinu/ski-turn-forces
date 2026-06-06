@@ -35,16 +35,16 @@
       </label>
 
       <label>
-        <span><span data-i18n="radius">ターン横幅 R（半幅）</span> <strong id="v-radius">10.0</strong> m</span>
-        <input type="range" id="radius" min="4" max="22" step="0.5" value="10" />
+        <span><span data-i18n="radius">ターンR（曲率半径）</span> <strong id="v-radius">15.0</strong> m</span>
+        <input type="range" id="radius" min="6" max="30" step="0.5" value="15" />
       </label>
-      <p class="param-hint" data-i18n="radiusHint">ターンの横の張り出し（半幅）。長さを変えても不変</p>
+      <p class="param-hint" data-i18n="radiusHint">弧の曲率半径（apexの最小半径）。大きいほど緩く大きなターン</p>
 
       <label>
-        <span><span data-i18n="length">1ターンの長さ（縦）</span> <strong id="v-length">30</strong> m</span>
-        <input type="range" id="length" min="12" max="45" step="1" value="30" />
+        <span><span data-i18n="depth">ターンの深さ φ</span> <strong id="v-depth">60</strong>°</span>
+        <input type="range" id="depth" min="30" max="85" step="5" value="60" />
       </label>
-      <p class="param-hint" data-i18n="lengthHint">1ターンで進む降下方向の距離。深さ φ = L/(2R) で決まる</p>
+      <p class="param-hint" data-i18n="depthHint">切り替え時の進行方向と斜面下方向のなす角（90°=真横まで）</p>
 
       <label>
         <span><span data-i18n="mass">質量 m</span> <strong id="v-mass">60</strong> kg</span>
@@ -52,10 +52,10 @@
       </label>
 
       <p class="derived">
-        <span data-i18n="derivedDepth">ターンの深さ φ ≈</span>
-        <strong id="v-depth">60</strong>°,
-        <span data-i18n="derivedApex">apex半径 ≈</span>
-        <strong id="v-apex">14.3</strong> m
+        <span data-i18n="derivedLength">縦長 L ≈</span>
+        <strong id="v-length">31.4</strong> m,
+        <span data-i18n="derivedWidth">横幅 ≈</span>
+        <strong id="v-width">20.8</strong> m
       </p>
 
       <div class="legend">

@@ -11,14 +11,13 @@
  *     切り替え(|φ|=φmax) に向かって板がフラット化し半径が開く（Fc は切り替えでも非ゼロ）。
  *
  * 入力（人間が触る直感的な2つ）:
- *   R      = ターン横幅（apex の横方向オフセット = 半幅）[m]。長さを変えても不変。
- *   length = 1ターンの降下距離 L [m]。
+ *   R     = ターン弧の曲率半径（= apex の最小半径）[m]。スキーで言う「ターンのR」。
+ *           R を大きくすると弧が緩く（ターン全体が大きく）なる。
+ *   depth = ターンの深さ φmax [deg]（切り替えでの進行方向と斜面下方向のなす角）。
  *
- * 内部パラメータは入力から逆算する:
- *   横幅 A = -R_apex·ln(cos φmax)
- *   長さ L = 2·R_apex·φmax
- *   → A/L = -ln(cos φmax)/(2·φmax) を解いて φmax、続いて R_apex = L/(2·φmax)。
- *   これにより「横幅は L に依らず一定」「L を伸ばすと φmax が小さく＝弧が浅くなる」。
+ * 導出量:
+ *   1ターンの縦長 L = 2·R·φmax
+ *   ターン横幅 W = -2·R·ln(cos φmax)
  */
 
 export const G = 9.81;
@@ -33,27 +32,12 @@ export const PHASES = [
 
 export const PHASE_COLORS = ["#7C3AED", "#EA580C", "#DB2777", "#0891B2"];
 
-/** @typedef {{ slope:number, speed:number, R:number, length:number, mass:number }} SimParams */
+/** @typedef {{ slope:number, speed:number, R:number, depth:number, mass:number }} SimParams */
 
 const deg2rad = (d) => (d * Math.PI) / 180;
 
 /** φmax を 85° 以下に制限（cos→0 での半径発散を防ぐ） */
 const MAX_DEPTH_RAD = deg2rad(85);
-
-/** 横幅 A・長さ L から深さ φmax を逆算（A/L = -ln(cosφ)/(2φ) を2分法で） */
-function solveDepth(A, L) {
-  const target = A / L;
-  const g = (phi) => -Math.log(Math.cos(phi)) / (2 * phi);
-  if (target >= g(MAX_DEPTH_RAD)) return MAX_DEPTH_RAD; // 幅が広すぎ→頭打ち
-  let lo = 1e-4;
-  let hi = MAX_DEPTH_RAD;
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    if (g(mid) < target) lo = mid;
-    else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
 
 /** カービング半径 r(φ) = R_apex / cos(φ) [m] */
 function radiusAt(phi, Rapex) {
@@ -82,10 +66,8 @@ function forcesAtPhi(phi, Rapex, params) {
  * @param {SimParams} params
  */
 export function simulate(params, turns = 2, perTurn = 200) {
-  const A = params.R; // 横幅（半幅）
-  const L = params.length; // 降下長
-  const depthRad = solveDepth(A, L);
-  const Rapex = L / (2 * depthRad);
+  const Rapex = params.R; // 曲率半径（apex の最小半径）
+  const depthRad = Math.min(deg2rad(params.depth), MAX_DEPTH_RAD);
 
   const path = [];
   const firstTurn = [];
@@ -137,6 +119,7 @@ export function simulate(params, turns = 2, perTurn = 200) {
     phases,
     depthDeg: (depthRad * 180) / Math.PI,
     apexRadius: Rapex,
+    length: 2 * Rapex * depthRad,
     width: 2 * maxX,
   };
 }
