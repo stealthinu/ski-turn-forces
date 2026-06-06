@@ -12,8 +12,9 @@ const COLORS = {
   muted: "#64748B",
 };
 
-/** この λ[m] が描画領域の高さいっぱいになる基準（λ が小さいほど画面でも短く表示） */
-const REF_TURN_LENGTH = 80;
+/** 俯瞰図の固定縮尺の基準（縮尺は常に一定。長いターンほど画面でも長く描かれる） */
+const REF_DOWNHILL = 90; // 縦: 2ターン × 45m(=デフォルト30mの1.5倍) を画面に収める基準
+const REF_WIDTH = 70; // 横: この幅[m]までを画面内に収める基準
 
 export function drawArrow(ctx, x1, y1, x2, y2, color, width = 2) {
   const head = Math.max(7, width * 3.5);
@@ -86,13 +87,12 @@ export function makeTransform(canvas, bounds, padding = 48) {
 }
 
 /**
- * 俯瞰図用スケール。
- * λ=REF_TURN_LENGTH が高さいっぱいになる固定 px/m を基準にし、
- * λ が小さければ画面上でも短く（上端そろえで）表示する。
- * データがはみ出す場合のみ縮小してフィットさせる。
+ * 俯瞰図用スケール（固定縮尺・等倍）。
+ * REF_DOWNHILL / REF_WIDTH という定数だけで px/m を決めるため、
+ * パラメータを変えても縮尺は変わらない（長いターンほど画面でも長く描かれる）。
+ * 原点(0,0): 横は中央、縦は上端そろえ。
  */
-export function makeOverviewTransform(canvas, bounds, padding = 48) {
-  const { minX, maxX, minY, maxY } = bounds;
+export function makeOverviewTransform(canvas, padding = 48) {
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   canvas.width = w * devicePixelRatio;
@@ -100,16 +100,13 @@ export function makeOverviewTransform(canvas, bounds, padding = 48) {
 
   const plotW = w - padding * 2;
   const plotH = h - padding * 2;
-  const dataW = maxX - minX || 1;
-  const dataH = maxY - minY || 1;
 
-  let s = plotH / REF_TURN_LENGTH; // 固定 px/m
-  s = Math.min(s, plotH / dataH, plotW / dataW); // はみ出す場合のみ縮小
+  const s = Math.min(plotH / REF_DOWNHILL, plotW / REF_WIDTH); // 定数のみ → 固定縮尺
 
-  const cx = padding + (plotW - dataW * s) / 2; // 横は中央
-  const cy = padding; // 縦は上端そろえ → λ が短いと下に余白が残る
+  const cx = w / 2; // x=0 を横中央に
+  const cy = padding; // y=0 を上端に
 
-  const worldToScreen = (x, y) => [cx + (x - minX) * s, cy + (y - minY) * s];
+  const worldToScreen = (x, y) => [cx + x * s, cy + y * s];
 
   return { ctx: canvas.getContext("2d"), w, h, s, worldToScreen, padding };
 }
@@ -127,11 +124,7 @@ export function clearCanvas(ctx, w, h) {
  */
 export function renderOverview(canvas, params, phases, path, i18n) {
   const maxDown = Math.max(...path.map((p) => p.y));
-  const lateral = Math.max(...path.map((p) => Math.abs(p.x))) * 1.25 || 1;
-  const t = makeOverviewTransform(
-    canvas,
-    { minX: -lateral, maxX: lateral, minY: -2, maxY: maxDown + 3 },
-  );
+  const t = makeOverviewTransform(canvas);
   const { ctx, w, h, worldToScreen } = t;
 
   clearCanvas(ctx, w, h);
