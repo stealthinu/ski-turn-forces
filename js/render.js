@@ -15,6 +15,8 @@ const COLORS = {
 /** 俯瞰図の固定縮尺の基準（縮尺は常に一定。長いターンほど画面でも長く描かれる） */
 const REF_DOWNHILL = 90; // 縦: 2ターン × 45m(=デフォルト30mの1.5倍) を画面に収める基準
 const REF_WIDTH = 70; // 横: この幅[m]までを画面内に収める基準
+/** 表示倍率（軌道・力の矢印を拡大。下端がはみ出して切れてもよい） */
+const OVERVIEW_ZOOM = 2.5;
 
 export function drawArrow(ctx, x1, y1, x2, y2, color, width = 2) {
   const head = Math.max(7, width * 3.5);
@@ -101,7 +103,7 @@ export function makeOverviewTransform(canvas, padding = 48) {
   const plotW = w - padding * 2;
   const plotH = h - padding * 2;
 
-  const s = Math.min(plotH / REF_DOWNHILL, plotW / REF_WIDTH); // 定数のみ → 固定縮尺
+  const s = OVERVIEW_ZOOM * Math.min(plotH / REF_DOWNHILL, plotW / REF_WIDTH); // 定数のみ → 固定縮尺
 
   const cx = w / 2; // x=0 を横中央に
   const cy = padding; // y=0 を上端に
@@ -170,7 +172,7 @@ export function renderOverview(canvas, params, phases, path, i18n) {
     const fc = Math.hypot(state.centrifugal.x, state.centrifugal.y);
     maxF = Math.max(maxF, fg + fc);
   });
-  const forceScale = 42 / maxF;
+  const forceScale = (42 * OVERVIEW_ZOOM) / maxF;
 
   phases.forEach(({ label, state, color }) => {
     const [px, py] = worldToScreen(state.x, state.y);
@@ -189,31 +191,6 @@ export function renderOverview(canvas, params, phases, path, i18n) {
     ctx.fillText(label, px, py - 14);
 
     drawForceParallelogram(ctx, px, py, state.gravity, state.centrifugal, state.resultant, forceScale);
-
-    const fg = Math.hypot(state.gravity.x, state.gravity.y);
-    const fc = Math.hypot(state.centrifugal.x, state.centrifugal.y);
-    const fn = Math.hypot(state.resultant.x, state.resultant.y);
-    const ang = (Math.atan2(state.resultant.y, state.resultant.x) * 180) / Math.PI;
-    const rLabel = Number.isFinite(state.radius) ? `R≈${state.radius.toFixed(1)}m` : "R=∞";
-    const lines = [
-      rLabel,
-      `|Fg|=${fg.toFixed(0)}N  |Fc|=${fc.toFixed(0)}N`,
-      `|F|=${fn.toFixed(0)}N  ∠${ang.toFixed(0)}°`,
-    ];
-    const bx = px + 12;
-    const by = py + 16;
-    ctx.textAlign = "left";
-    ctx.font = "10px 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif";
-    const bw = 130;
-    const bh = 42;
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.strokeStyle = "#E2E8F0";
-    ctx.lineWidth = 1;
-    roundRect(ctx, bx, by, bw, bh, 4);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#334155";
-    lines.forEach((line, li) => ctx.fillText(line, bx + 6, by + 12 + li * 12));
   });
 
   ctx.fillStyle = COLORS.muted;
@@ -289,15 +266,6 @@ export function renderPhasePanel(canvas, phase, i18n) {
     `|${fNetLabel}| = ${fn.toFixed(0)} N`,
   ];
   info.forEach((line, i) => ctx.fillText(line, 10, h - 52 + i * 13));
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  if (typeof ctx.roundRect === "function") {
-    ctx.roundRect(x, y, w, h, r);
-  } else {
-    ctx.rect(x, y, w, h);
-  }
 }
 
 export { COLORS };

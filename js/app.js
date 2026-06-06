@@ -16,7 +16,7 @@ const els = {
   vRadius: document.getElementById("v-radius"),
   vLength: document.getElementById("v-length"),
   vDepth: document.getElementById("v-depth"),
-  vWidth: document.getElementById("v-width"),
+  vApex: document.getElementById("v-apex"),
   vMass: document.getElementById("v-mass"),
   tbody: document.querySelector("#data-table tbody"),
   langJa: document.getElementById("lang-ja"),
@@ -41,7 +41,7 @@ function updateValueLabels(params, sim) {
   els.vRadius.textContent = params.R.toFixed(1);
   els.vLength.textContent = params.length.toFixed(0);
   els.vDepth.textContent = sim.depthDeg.toFixed(0);
-  els.vWidth.textContent = sim.width.toFixed(1);
+  els.vApex.textContent = sim.apexRadius.toFixed(1);
   els.vMass.textContent = String(params.mass);
 }
 

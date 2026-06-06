@@ -7,15 +7,18 @@
  *
  * モデル:
  *   - 進行方向 φ を斜面下方向（フォールライン）からの偏角とする。
- *   - 半径 r(φ) = R / cos(φ)。apex(φ=0) で最小 R（一番きつい）、
- *     切り替え(|φ|=φmax) に向かって板がフラット化し半径が開く。
- *   - これにより 1ターンの縦（降下）長さ L = ∫cos(φ)·r dφ = 2·R·φmax と単純化。
- *     → 「ターンR」と「ターンの長さ L」を指定すると φmax = L/(2R) で深さが決まる。
- *   - 遠心力 Fc = m·v²/r。半径が場所で変わるので apex で最大。
+ *   - 半径 r(φ) = R_apex / cos(φ)。apex(φ=0) で最小 R_apex（一番きつい）、
+ *     切り替え(|φ|=φmax) に向かって板がフラット化し半径が開く（Fc は切り替えでも非ゼロ）。
  *
- * 入力パラメータ（直感的な2つ + 環境）:
- *   R      : ターン半径（apex の最小半径＝円で見たときの半径）[m]
- *   length : 1ターンの縦（降下方向）長さ [m]
+ * 入力（人間が触る直感的な2つ）:
+ *   R      = ターン横幅（apex の横方向オフセット = 半幅）[m]。長さを変えても不変。
+ *   length = 1ターンの降下距離 L [m]。
+ *
+ * 内部パラメータは入力から逆算する:
+ *   横幅 A = -R_apex·ln(cos φmax)
+ *   長さ L = 2·R_apex·φmax
+ *   → A/L = -ln(cos φmax)/(2·φmax) を解いて φmax、続いて R_apex = L/(2·φmax)。
+ *   これにより「横幅は L に依らず一定」「L を伸ばすと φmax が小さく＝弧が浅くなる」。
  */
 
 export const G = 9.81;
@@ -37,20 +40,30 @@ const deg2rad = (d) => (d * Math.PI) / 180;
 /** φmax を 85° 以下に制限（cos→0 での半径発散を防ぐ） */
 const MAX_DEPTH_RAD = deg2rad(85);
 
-/** ターンの深さ φmax [rad] = L / (2R)（85° で頭打ち） */
-export function depthFromLength(R, length) {
-  return Math.min(length / (2 * R), MAX_DEPTH_RAD);
+/** 横幅 A・長さ L から深さ φmax を逆算（A/L = -ln(cosφ)/(2φ) を2分法で） */
+function solveDepth(A, L) {
+  const target = A / L;
+  const g = (phi) => -Math.log(Math.cos(phi)) / (2 * phi);
+  if (target >= g(MAX_DEPTH_RAD)) return MAX_DEPTH_RAD; // 幅が広すぎ→頭打ち
+  let lo = 1e-4;
+  let hi = MAX_DEPTH_RAD;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (g(mid) < target) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
-/** カービング半径 r(φ) = R / cos(φ) [m] */
-function radiusAt(phi, R) {
-  return R / Math.cos(phi);
+/** カービング半径 r(φ) = R_apex / cos(φ) [m] */
+function radiusAt(phi, Rapex) {
+  return Rapex / Math.cos(phi);
 }
 
 /** ヘディング φ における力（右ターン、外向き = 速度の右法線） */
-function forcesAtPhi(phi, params) {
-  const { slope, speed, R, mass } = params;
-  const r = radiusAt(phi, R);
+function forcesAtPhi(phi, Rapex, params) {
+  const { slope, speed, mass } = params;
+  const r = radiusAt(phi, Rapex);
 
   const tangent = { x: Math.sin(phi), y: Math.cos(phi) };
   const outward = { x: Math.cos(phi), y: -Math.sin(phi) }; // 右ターンの外向き
@@ -61,15 +74,18 @@ function forcesAtPhi(phi, params) {
   const centrifugal = { x: outward.x * fcMag, y: outward.y * fcMag };
   const resultant = { x: gravity.x + centrifugal.x, y: gravity.y + centrifugal.y };
 
-  return { phi, radius: r, tangent, gravity, centrifugal, resultant };
+  return { radius: r, tangent, gravity, centrifugal, resultant };
 }
 
 /**
- * ターンをヘディングで数値積分し、連結ターン軌道・代表フェーズ・派生量を返す。
+ * 連結ターン軌道・代表フェーズ・派生量を返す。
  * @param {SimParams} params
  */
 export function simulate(params, turns = 2, perTurn = 200) {
-  const depthRad = depthFromLength(params.R, params.length);
+  const A = params.R; // 横幅（半幅）
+  const L = params.length; // 降下長
+  const depthRad = solveDepth(A, L);
+  const Rapex = L / (2 * depthRad);
 
   const path = [];
   const firstTurn = [];
@@ -88,7 +104,7 @@ export function simulate(params, turns = 2, perTurn = 200) {
       if (i === perTurn) break;
       const dphi = ((2 * depthRad) / perTurn) * (right ? -1 : 1);
       const phiMid = phi + dphi / 2;
-      const r = radiusAt(phiMid, params.R);
+      const r = radiusAt(phiMid, Rapex);
       const ds = r * Math.abs(dphi);
       pos = { x: pos.x + Math.sin(phiMid) * ds, y: pos.y + Math.cos(phiMid) * ds };
       phi += dphi;
@@ -101,7 +117,7 @@ export function simulate(params, turns = 2, perTurn = 200) {
     for (const s of firstTurn) {
       if (Math.abs(s.phi - targetPhi) < Math.abs(best.phi - targetPhi)) best = s;
     }
-    const f = forcesAtPhi(targetPhi, params);
+    const f = forcesAtPhi(targetPhi, Rapex, params);
     return {
       ...p,
       state: {
@@ -116,15 +132,11 @@ export function simulate(params, turns = 2, perTurn = 200) {
     };
   });
 
-  const downhill = firstTurn.length ? firstTurn[firstTurn.length - 1].y : 0;
-
   return {
     path,
     phases,
     depthDeg: (depthRad * 180) / Math.PI,
-    minRadius: params.R,
-    maxRadius: radiusAt(depthRad, params.R),
-    downhill,
+    apexRadius: Rapex,
     width: 2 * maxX,
   };
 }
