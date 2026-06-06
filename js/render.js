@@ -127,7 +127,7 @@ export function clearCanvas(ctx, w, h) {
  */
 export function renderOverview(canvas, params, phases, path, i18n) {
   const maxDown = Math.max(...path.map((p) => p.y));
-  const lateral = params.amp * 1.35;
+  const lateral = Math.max(...path.map((p) => Math.abs(p.x))) * 1.25 || 1;
   const t = makeOverviewTransform(
     canvas,
     { minX: -lateral, maxX: lateral, minY: -2, maxY: maxDown + 3 },

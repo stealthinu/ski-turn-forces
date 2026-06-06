@@ -1,9 +1,9 @@
 import {
   PHASE_COLORS,
+  arcLength,
   magnitudes,
   phaseStates,
   samplePath,
-  turnLengthFromAmpRadius,
 } from "./physics.js";
 import { applyI18n, getLang, phaseLabel, setLang, t } from "./i18n.js";
 import { renderOverview, renderPhasePanel } from "./render.js";
@@ -15,14 +15,14 @@ const els = {
   slope: document.getElementById("slope"),
   speed: document.getElementById("speed"),
   radius: document.getElementById("radius"),
-  amp: document.getElementById("amp"),
+  turnAngle: document.getElementById("turn-angle"),
   mass: document.getElementById("mass"),
   vSlope: document.getElementById("v-slope"),
   vSpeed: document.getElementById("v-speed"),
   vRadius: document.getElementById("v-radius"),
-  vWave: document.getElementById("v-wave"),
+  vTurnAngle: document.getElementById("v-turn-angle"),
+  vArc: document.getElementById("v-arc"),
   vMass: document.getElementById("v-mass"),
-  vAmp: document.getElementById("v-amp"),
   tbody: document.querySelector("#data-table tbody"),
   langJa: document.getElementById("lang-ja"),
   langEn: document.getElementById("lang-en"),
@@ -31,25 +31,24 @@ const els = {
 const i18n = { t, phaseLabel };
 
 function readParams() {
-  const apexR = +els.radius.value;
-  const amp = +els.amp.value;
-  const wave = turnLengthFromAmpRadius(amp, apexR);
+  const R = +els.radius.value;
+  const turnAngle = +els.turnAngle.value;
   return {
     slope: +els.slope.value,
     speed: +els.speed.value,
-    wave,
+    R,
+    turnAngle,
     mass: +els.mass.value,
-    amp,
-    apexR,
+    arc: arcLength(R, turnAngle),
   };
 }
 
 function updateValueLabels(params) {
   els.vSlope.textContent = String(params.slope);
   els.vSpeed.textContent = params.speed.toFixed(1);
-  els.vRadius.textContent = params.apexR.toFixed(1);
-  els.vAmp.textContent = params.amp.toFixed(1);
-  els.vWave.textContent = params.wave.toFixed(0);
+  els.vRadius.textContent = params.R.toFixed(1);
+  els.vTurnAngle.textContent = String(params.turnAngle);
+  els.vArc.textContent = params.arc.toFixed(1);
   els.vMass.textContent = String(params.mass);
 }
 
@@ -84,8 +83,8 @@ function render() {
   const simParams = {
     slope: params.slope,
     speed: params.speed,
-    amp: params.amp,
-    wave: params.wave,
+    R: params.R,
+    turnAngle: params.turnAngle,
     mass: params.mass,
   };
 
@@ -112,7 +111,7 @@ document.documentElement.lang = getLang() === "ja" ? "ja" : "en";
 applyI18n();
 updateLangButtons();
 
-["slope", "speed", "radius", "amp", "mass"].forEach((id) => {
+["slope", "speed", "radius", "turn-angle", "mass"].forEach((id) => {
   document.getElementById(id).addEventListener("input", render);
 });
 els.langJa?.addEventListener("click", () => switchLang("ja"));

@@ -30,20 +30,20 @@
       </label>
 
       <label>
-        <span><span data-i18n="speed">速度 v</span> <strong id="v-speed">15.0</strong> m/s</span>
-        <input type="range" id="speed" min="3" max="22" step="0.5" value="15" />
+        <span><span data-i18n="speed">速度 v</span> <strong id="v-speed">14.0</strong> m/s</span>
+        <input type="range" id="speed" min="3" max="22" step="0.5" value="14" />
       </label>
 
       <label>
-        <span><span data-i18n="radius">ターン半径 R（apex）</span> <strong id="v-radius">10.0</strong> m</span>
-        <input type="range" id="radius" min="3" max="25" step="0.2" value="10" />
+        <span><span data-i18n="radius">ターン半径 R</span> <strong id="v-radius">18.0</strong> m</span>
+        <input type="range" id="radius" min="5" max="30" step="0.5" value="18" />
       </label>
 
       <label>
-        <span><span data-i18n="amplitude">横振幅 A</span> <strong id="v-amp">4.0</strong> m</span>
-        <input type="range" id="amp" min="2" max="12" step="0.5" value="4" />
+        <span><span data-i18n="turnAngle">1ターン角 θ</span> <strong id="v-turn-angle">120</strong>°</span>
+        <input type="range" id="turn-angle" min="40" max="160" step="5" value="120" />
       </label>
-      <p class="param-hint" data-i18n="amplitudeHint">ターンで左右に振れる片振幅（谷側・山側への振り幅）</p>
+      <p class="param-hint" data-i18n="turnAngleHint">1ターンで進行方向が変わる角度（弧長 = R×θ）</p>
 
       <label>
         <span><span data-i18n="mass">質量 m</span> <strong id="v-mass">60</strong> kg</span>
@@ -51,9 +51,9 @@
       </label>
 
       <p class="derived">
-        <span data-i18n="derivedLambda">1ターンの降下距離 λ ≈</span>
-        <strong id="v-wave">40</strong> m
-        <span data-i18n="derivedLambdaNote">（A と R から自動計算）</span>
+        <span data-i18n="derivedArc">1ターン弧長 ≈</span>
+        <strong id="v-arc">37.7</strong> m
+        <span data-i18n="derivedArcNote">（R×θ から自動計算）</span>
       </p>
 
       <div class="legend">
@@ -83,7 +83,7 @@
 
     <div class="view">
       <section class="panel">
-        <h3 data-i18n="overviewTitle">俯瞰図（サインカーブ軌道 + 各フェーズの力）</h3>
+        <h3 data-i18n="overviewTitle">俯瞰図（連結ターン軌道 + 各フェーズの力）</h3>
         <canvas id="overview"></canvas>
       </section>
 
