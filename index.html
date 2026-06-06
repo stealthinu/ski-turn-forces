@@ -40,10 +40,10 @@
       </label>
 
       <label>
-        <span><span data-i18n="turnAngle">1ターン角 θ</span> <strong id="v-turn-angle">120</strong>°</span>
-        <input type="range" id="turn-angle" min="40" max="160" step="5" value="120" />
+        <span><span data-i18n="depth">ターンの深さ φ</span> <strong id="v-depth">45</strong>°</span>
+        <input type="range" id="depth" min="15" max="80" step="5" value="45" />
       </label>
-      <p class="param-hint" data-i18n="turnAngleHint">1ターンで進行方向が変わる角度（弧長 = R×θ）</p>
+      <p class="param-hint" data-i18n="depthHint">切り替え時の進行方向と斜面下方向のなす角（90°=真横まで）</p>
 
       <label>
         <span><span data-i18n="mass">質量 m</span> <strong id="v-mass">60</strong> kg</span>
@@ -52,8 +52,9 @@
 
       <p class="derived">
         <span data-i18n="derivedArc">1ターン弧長 ≈</span>
-        <strong id="v-arc">37.7</strong> m
-        <span data-i18n="derivedArcNote">（R×θ から自動計算）</span>
+        <strong id="v-arc">37.7</strong> m,
+        <span data-i18n="derivedAmp">横振幅 A ≈</span>
+        <strong id="v-amp">18.0</strong> m
       </p>
 
       <div class="legend">

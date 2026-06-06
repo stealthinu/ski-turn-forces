@@ -8,8 +8,9 @@
  * 軌道は x = A·sin(t), y = c·t（c = λ/2π）のサインカーブ。
  *   - 曲率半径は場所で変化し、apex（一番外側 t=π/2）で最小 = R、
  *     切り替え（t=0, π）で ∞ になる。
- *   - 入力は「apex の最小半径 R」と「1ターン角 θ」。
- *     θ は 1ターン弧長 L = R·θ を決め、そこから A, λ を数値的に解く。
+ *   - 入力は「apex の最小半径 R」と「ターンの深さ φ」。
+ *     φ は切り替え時の進行方向と斜面下方向（フォールライン）のなす角。
+ *     90°=真横を向くまで、45°=斜面下方向に対して45°まで。
  *   - 遠心力 Fc = m·v²/r（r は局所半径）。apex で最大、切り替えで 0。
  */
 
@@ -29,13 +30,8 @@ export const PHASE_COLORS = ["#7C3AED", "#EA580C", "#DB2777", "#0891B2"];
 
 const deg2rad = (d) => (d * Math.PI) / 180;
 
-/** 1ターン弧長 L = R·θ [m]（θ は度） */
-export function arcLength(R, turnAngleDeg) {
-  return R * deg2rad(turnAngleDeg);
-}
-
-/** サイン1ターン分（t:0→π）の弧長を数値積分 */
-function sineArcLength(amp, c, steps = 240) {
+/** サイン1ターン分（t:0→π）の弧長を数値積分 [m] */
+export function sineArcLength(amp, c, steps = 240) {
   let sum = 0;
   const dt = Math.PI / steps;
   for (let i = 0; i < steps; i++) {
@@ -47,24 +43,20 @@ function sineArcLength(amp, c, steps = 240) {
 }
 
 /**
- * 「apex 最小半径 R」と「1ターン弧長 L=R·θ」を満たすサインカーブを解く。
- * 制約: R = c²/A（apex 半径） → A = c²/R。c を二分法で弧長に合わせる。
+ * 「apex 最小半径 R」と「ターンの深さ φ（切り替え時の進行方向と斜面下方向のなす角）」
+ * からサインカーブの振幅 A・波長 λ を解析的に求める。
+ *
+ * 切り替え(t=0)での進行方向角 φ = atan(A/c)、apex(t=π/2) 半径 = c²/A。
+ *   tanφ = A/c かつ R = c²/A  →  c = R·tanφ,  A = R·tan²φ,  λ = 2π·c
+ *
  * @returns {{ amp: number, wave: number, arc: number }}
  */
-export function solveSineFromRTurn(R, turnAngleDeg) {
-  const targetArc = arcLength(R, turnAngleDeg);
-  const arcForC = (c) => sineArcLength((c * c) / R, c);
-  let lo = 0.01;
-  let hi = 1000;
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    if (arcForC(mid) < targetArc) lo = mid;
-    else hi = mid;
-  }
-  const c = (lo + hi) / 2;
-  const amp = (c * c) / R;
+export function solveSineFromRDepth(R, depthDeg) {
+  const tanPhi = Math.tan(deg2rad(Math.min(Math.max(depthDeg, 1), 88)));
+  const c = R * tanPhi;
+  const amp = R * tanPhi * tanPhi;
   const wave = 2 * Math.PI * c;
-  return { amp, wave, arc: targetArc };
+  return { amp, wave, arc: sineArcLength(amp, c) };
 }
 
 export function pathPoint(theta, wavelength, amplitude) {

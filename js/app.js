@@ -3,7 +3,7 @@ import {
   magnitudes,
   phaseStates,
   samplePath,
-  solveSineFromRTurn,
+  solveSineFromRDepth,
 } from "./physics.js";
 import { applyI18n, getLang, phaseLabel, setLang, t } from "./i18n.js";
 import { renderOverview, renderPhasePanel } from "./render.js";
@@ -15,13 +15,14 @@ const els = {
   slope: document.getElementById("slope"),
   speed: document.getElementById("speed"),
   radius: document.getElementById("radius"),
-  turnAngle: document.getElementById("turn-angle"),
+  depth: document.getElementById("depth"),
   mass: document.getElementById("mass"),
   vSlope: document.getElementById("v-slope"),
   vSpeed: document.getElementById("v-speed"),
   vRadius: document.getElementById("v-radius"),
-  vTurnAngle: document.getElementById("v-turn-angle"),
+  vDepth: document.getElementById("v-depth"),
   vArc: document.getElementById("v-arc"),
+  vAmp: document.getElementById("v-amp"),
   vMass: document.getElementById("v-mass"),
   tbody: document.querySelector("#data-table tbody"),
   langJa: document.getElementById("lang-ja"),
@@ -32,13 +33,13 @@ const i18n = { t, phaseLabel };
 
 function readParams() {
   const R = +els.radius.value;
-  const turnAngle = +els.turnAngle.value;
-  const { amp, wave, arc } = solveSineFromRTurn(R, turnAngle);
+  const depth = +els.depth.value;
+  const { amp, wave, arc } = solveSineFromRDepth(R, depth);
   return {
     slope: +els.slope.value,
     speed: +els.speed.value,
     R,
-    turnAngle,
+    depth,
     mass: +els.mass.value,
     amp,
     wave,
@@ -50,8 +51,9 @@ function updateValueLabels(params) {
   els.vSlope.textContent = String(params.slope);
   els.vSpeed.textContent = params.speed.toFixed(1);
   els.vRadius.textContent = params.R.toFixed(1);
-  els.vTurnAngle.textContent = String(params.turnAngle);
+  els.vDepth.textContent = String(params.depth);
   els.vArc.textContent = params.arc.toFixed(1);
+  els.vAmp.textContent = params.amp.toFixed(1);
   els.vMass.textContent = String(params.mass);
 }
 
@@ -114,7 +116,7 @@ document.documentElement.lang = getLang() === "ja" ? "ja" : "en";
 applyI18n();
 updateLangButtons();
 
-["slope", "speed", "radius", "turn-angle", "mass"].forEach((id) => {
+["slope", "speed", "radius", "depth", "mass"].forEach((id) => {
   document.getElementById(id).addEventListener("input", render);
 });
 els.langJa?.addEventListener("click", () => switchLang("ja"));
