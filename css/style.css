@@ -175,11 +175,35 @@ input[type="range"] {
   padding: 0.5rem;
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-right: 0.5rem;
+}
+
 .panel h3 {
   margin: 0.25rem 0 0.5rem 0.75rem;
   font-size: 0.85rem;
   color: var(--muted);
   font-weight: 600;
+}
+
+.icon-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
 }
 
 #overview {

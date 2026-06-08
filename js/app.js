@@ -1,6 +1,6 @@
 import { PHASE_COLORS, magnitudes, simulate } from "./physics.js";
 import { applyI18n, getLang, phaseLabel, setLang, t } from "./i18n.js";
-import { renderOverview, renderPhasePanel } from "./render.js";
+import { renderOverview, renderOverviewSvg, renderPhasePanel } from "./render.js";
 
 const overviewCanvas = document.getElementById("overview");
 const phaseCanvases = [...document.querySelectorAll(".phase-canvas")];
@@ -21,18 +21,28 @@ const els = {
   tbody: document.querySelector("#data-table tbody"),
   langJa: document.getElementById("lang-ja"),
   langEn: document.getElementById("lang-en"),
+  exportOverviewSvg: document.getElementById("export-overview-svg"),
 };
 
 const i18n = { t, phaseLabel };
+let lastRenderState = null;
 
 function readParams() {
   return {
-    slope: +els.slope.value,
-    speed: +els.speed.value,
-    R: +els.radius.value,
-    depth: +els.depth.value,
-    mass: +els.mass.value,
+    slope: Number(els.slope.value),
+    speed: Number(els.speed.value),
+    R: Number(els.radius.value),
+    depth: Number(els.depth.value),
+    mass: Number(els.mass.value),
   };
+}
+
+function buildPhases(sim) {
+  return sim.phases.map((phase, index) => ({
+    ...phase,
+    label: phaseLabel(phase.id),
+    color: PHASE_COLORS[index],
+  }));
 }
 
 function updateValueLabels(params, sim) {
@@ -49,6 +59,11 @@ function updateLangButtons() {
   const lang = getLang();
   els.langJa?.classList.toggle("active", lang === "ja");
   els.langEn?.classList.toggle("active", lang === "en");
+  if (els.exportOverviewSvg) {
+    const label = t("exportOverviewSvgLabel");
+    els.exportOverviewSvg.setAttribute("aria-label", label);
+    els.exportOverviewSvg.setAttribute("title", label);
+  }
 }
 
 function updateTable(phases) {
@@ -56,10 +71,10 @@ function updateTable(phases) {
     ...phases.map(({ label, state }) => {
       const { fg, fc, fn, angle } = magnitudes(state);
       const tr = document.createElement("tr");
-      const r = Number.isFinite(state.radius) ? state.radius.toFixed(1) : "∞";
+      const radius = Number.isFinite(state.radius) ? state.radius.toFixed(1) : "--";
       tr.innerHTML = `
         <td>${label}</td>
-        <td>${r}</td>
+        <td>${radius}</td>
         <td>${fg.toFixed(0)}</td>
         <td>${fc.toFixed(0)}</td>
         <td>${fn.toFixed(0)}</td>
@@ -72,17 +87,38 @@ function updateTable(phases) {
 function render() {
   const params = readParams();
   const sim = simulate(params);
+  const phases = buildPhases(sim);
+
   updateValueLabels(params, sim);
-
-  const phases = sim.phases.map((p, i) => ({
-    ...p,
-    label: phaseLabel(p.id),
-    color: PHASE_COLORS[i],
-  }));
-
   renderOverview(overviewCanvas, params, phases, sim.path, i18n);
-  phaseCanvases.forEach((canvas, i) => renderPhasePanel(canvas, phases[i], i18n));
+  phaseCanvases.forEach((canvas, index) => renderPhasePanel(canvas, phases[index], i18n));
   updateTable(phases);
+
+  lastRenderState = { params, sim, phases };
+}
+
+function downloadOverviewSvg() {
+  if (!lastRenderState) return;
+
+  const width = Math.max(Math.round(overviewCanvas.clientWidth), 960);
+  const height = Math.max(Math.round(overviewCanvas.clientHeight), 520);
+  const svg = renderOverviewSvg({
+    width,
+    height,
+    phases: lastRenderState.phases,
+    path: lastRenderState.sim.path,
+    i18n,
+  });
+
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "ski-turn-overview.svg";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function switchLang(lang) {
@@ -101,5 +137,7 @@ updateLangButtons();
 });
 els.langJa?.addEventListener("click", () => switchLang("ja"));
 els.langEn?.addEventListener("click", () => switchLang("en"));
+els.exportOverviewSvg?.addEventListener("click", downloadOverviewSvg);
 window.addEventListener("resize", render);
+
 render();

@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>スキーターン 力ベクトル（リアルタイム）</title>
+  <title>スキーターン 力ベクトル（ライブ）</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <header>
     <div class="header-row">
       <div>
-        <h1 data-i18n="headerTitle">スキーターン — 斜面垂直上からの力ベクトル</h1>
-        <p data-i18n="headerSub">スライダーを動かすと即座に再計算・再描画されます</p>
+        <h1 data-i18n="headerTitle">スキーターン・力ベクトル（斜面上の俯瞰図）</h1>
+        <p data-i18n="headerSub">スライダーを動かすと計算と図が即座に更新されます</p>
       </div>
       <div class="lang-toggle" role="group" aria-label="Language">
         <button type="button" id="lang-ja" class="lang-btn active">日本語</button>
@@ -25,7 +25,7 @@
       <h2 data-i18n="params">パラメータ</h2>
 
       <label>
-        <span><span data-i18n="slope">斜面角度 α</span> <strong id="v-slope">20</strong>°</span>
+        <span><span data-i18n="slope">斜面角 θ</span> <strong id="v-slope">20</strong>°</span>
         <input type="range" id="slope" min="5" max="45" step="1" value="20" />
       </label>
 
@@ -38,13 +38,13 @@
         <span><span data-i18n="radius">ターンR（曲率半径）</span> <strong id="v-radius">15.0</strong> m</span>
         <input type="range" id="radius" min="6" max="30" step="0.5" value="15" />
       </label>
-      <p class="param-hint" data-i18n="radiusHint">弧の曲率半径（apexの最小半径）。大きいほど緩く大きなターン</p>
+      <p class="param-hint" data-i18n="radiusHint">ターン頂点で最小となる曲率半径。大きいほど大きく緩いターン</p>
 
       <label>
         <span><span data-i18n="depth">ターンの深さ φ</span> <strong id="v-depth">60</strong>°</span>
         <input type="range" id="depth" min="30" max="85" step="5" value="60" />
       </label>
-      <p class="param-hint" data-i18n="depthHint">切り替え時の進行方向と斜面下方向のなす角（90°=真横まで）</p>
+      <p class="param-hint" data-i18n="depthHint">切り替え時の進行方向とフォールラインのなす角（90° = 真横まで）</p>
 
       <label>
         <span><span data-i18n="mass">質量 m</span> <strong id="v-mass">60</strong> kg</span>
@@ -52,14 +52,14 @@
       </label>
 
       <p class="derived">
-        <span data-i18n="derivedLength">縦長 L ≈</span>
+        <span data-i18n="derivedLength">長さ L ≈</span>
         <strong id="v-length">31.4</strong> m,
-        <span data-i18n="derivedWidth">横幅 ≈</span>
+        <span data-i18n="derivedWidth">幅 ≈</span>
         <strong id="v-width">20.8</strong> m
       </p>
 
       <div class="legend">
-        <span><i class="swatch" style="background:#2563eb"></i><span data-i18n="legendGravity">斜面方向重力 Fg = mg·sinα</span></span>
+        <span><i class="swatch" style="background:#2563eb"></i><span data-i18n="legendGravity">斜面方向重力 Fg = mg·sinθ</span></span>
         <span><i class="swatch" style="background:#dc2626"></i><span data-i18n="legendCentrifugal">遠心力 Fc = mv²/R</span></span>
         <span><i class="swatch" style="background:#059669"></i><span data-i18n="legendResultant">合力 F = Fg + Fc</span></span>
       </div>
@@ -85,12 +85,22 @@
 
     <div class="view">
       <section class="panel">
-        <h3 data-i18n="overviewTitle">俯瞰図（連結ターン軌道 + 各フェーズの力）</h3>
+        <div class="panel-header">
+          <h3 data-i18n="overviewTitle">俯瞰図（連結ターン軌道 + 各フェーズの力）</h3>
+          <button
+            type="button"
+            id="export-overview-svg"
+            class="icon-btn"
+            data-i18n="exportOverviewSvg"
+            aria-label="Save the overview diagram as SVG"
+            title="Save the overview diagram as SVG"
+          >SVG</button>
+        </div>
         <canvas id="overview"></canvas>
       </section>
 
       <section class="panel">
-        <h3 data-i18n="phasesTitle">フェーズ別拡大（スキーヤー原点の平行四辺形）</h3>
+        <h3 data-i18n="phasesTitle">フェーズ詳細（スキーヤー起点のベクトル）</h3>
         <div class="phases">
           <div class="phase-card"><canvas class="phase-canvas" data-i="0"></canvas></div>
           <div class="phase-card"><canvas class="phase-canvas" data-i="1"></canvas></div>
